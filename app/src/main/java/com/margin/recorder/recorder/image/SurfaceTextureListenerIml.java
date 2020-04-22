@@ -8,7 +8,7 @@ import android.view.TextureView;
  * Created at : 2020-04-22 at 14:42
  * Description:
  */
-public abstract class RecordSurfaceTextureIml implements TextureView.SurfaceTextureListener {
+public abstract class SurfaceTextureListenerIml implements TextureView.SurfaceTextureListener {
 
 
     @Override
@@ -18,7 +18,7 @@ public abstract class RecordSurfaceTextureIml implements TextureView.SurfaceText
 
     @Override
     final public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        return false;
+        return true;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.margin.recorder.recorder.image;
 
+import android.app.Activity;
 import android.content.Context;
 import android.support.annotation.NonNull;
 import android.view.TextureView;
@@ -13,7 +14,7 @@ import java.util.List;
  */
 public interface IImageRecorder {
 
-    IImageRecorder target(@NonNull Context context, @NonNull TextureView previewView);
+    IImageRecorder target(@NonNull Activity activity, @NonNull TextureView previewView);
 
     IImageRecorder hand();
 

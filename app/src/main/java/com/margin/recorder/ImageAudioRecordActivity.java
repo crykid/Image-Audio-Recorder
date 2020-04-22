@@ -43,7 +43,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_record);
         progressBar = findViewById(R.id.pb_record_progress);
 
         previewView = findViewById(R.id.texturev_record_content);
