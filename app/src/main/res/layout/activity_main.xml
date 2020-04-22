@@ -5,8 +5,7 @@
     android:id="@+id/constraintLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/black"
->
+    android:background="@android:color/black">
 
     <com.margin.recorder.recorder.demo.CameraPreview
         android:id="@+id/cameraView"
@@ -18,6 +17,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <Button
+        android:id="@+id/btn_main_take"
         android:layout_width="70dp"
         android:layout_height="70dp"
         android:layout_gravity="center"
@@ -29,5 +29,15 @@
         app:layout_constraintStart_toStartOf="@id/constraintLayout"
         app:layout_constraintTop_toTopOf="@id/cameraView"
         app:layout_constraintVertical_bias="0.97" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintVertical_bias="0.97"
+        app:layout_constraintBottom_toBottomOf="@id/constraintLayout"
+        app:layout_constraintEnd_toEndOf="@id/constraintLayout"
+        android:onClick="jump"
+        app:layout_constraintStart_toEndOf="@+id/btn_main_take"
+        app:layout_constraintTop_toTopOf="@id/constraintLayout" />
 
 </android.support.constraint.ConstraintLayout>

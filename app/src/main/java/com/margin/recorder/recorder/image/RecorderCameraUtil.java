@@ -17,6 +17,7 @@ public class RecorderCameraUtil {
     private static final String TAG = "RecorderCameraUtil";
 
     public static Size getOptimalSize(Size[] sizes, int width, int height) {
+        //1080*1692
         ArrayList<Size> sizeList = new ArrayList<>();
         for (Size option : sizes) {
             if (width > height) {

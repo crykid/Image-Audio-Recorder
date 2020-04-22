@@ -177,12 +177,12 @@ public class ImagerRecorderIml implements IImageRecorder {
     @Override
     public void startPreview() {
 
-
+        Log.d(TAG, "=== startPreview === ");
         //初始化TextureView，设置监听
         final TextureView.SurfaceTextureListener listener = new SurfaceTextureListenerIml() {
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-
+                Log.d(TAG, " === onSurfaceTextureAvailable === ");
                 openCamera(width, height);
             }
         };
@@ -280,12 +280,12 @@ public class ImagerRecorderIml implements IImageRecorder {
 
         @Override
         public void onDisconnected(@NonNull CameraDevice camera) {
-
+            Log.d(TAG, "onDisconnected: ");
         }
 
         @Override
         public void onError(@NonNull CameraDevice camera, int error) {
-
+            Log.d(TAG, "onError: ");
         }
     };
 
@@ -304,19 +304,22 @@ public class ImagerRecorderIml implements IImageRecorder {
                 //获取前置or后置的属性
                 final Integer facing = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING);
                 //使用前置摄像头
+                if (facing == CameraCharacteristics.LENS_FACING_BACK) {
+                    continue;
+                }
                 if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
                     final StreamConfigurationMap map = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
                     if (map != null) {
                         previewSize = RecorderCameraUtil.getOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height);
-
+//                        mPreviewView.setRatiowSize(previewSize.getWidth(), previewSize.getHeight());
                         mCameraId = cameraId;
-                        return;
+                        break;
                     }
                 }
             }
             //打开摄像头
             mCameraManager.openCamera(mCameraId, mStateCallback, mCameraHandler);
-
+            Log.d(TAG, "openCamera: " + previewSize.getWidth() + " h = " + previewSize.getHeight());
 
         } catch (CameraAccessException e) {
             e.printStackTrace();

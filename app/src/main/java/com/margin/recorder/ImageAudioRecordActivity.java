@@ -17,6 +17,7 @@ import com.margin.recorder.recorder.audio.IAudioRecorder;
 import com.margin.recorder.recorder.image.IOnImageRecorderStatusChangeListener;
 import com.margin.recorder.recorder.image.ImagerRecorderIml;
 import com.margin.recorder.recorder.image.ImageRecorderStatus;
+import com.margin.recorder.recorder.image.RecorderTextureView;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -38,6 +39,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
     ProgressBar progressBar;
     Button btnStart, btnStop, btnCancel;
     IAudioRecorder recorder;
+//    RecorderTextureView previewView;
     TextureView previewView;
 
     @Override
@@ -54,6 +56,13 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
 
         recorder = AudioRecorderIml.getInstance();
 
+        ImagerRecorderIml
+                    .getInstance()
+                    .target(this, previewView)
+                    .directory(Objects.requireNonNull(FileUtil.getFilePath(this, Environment.DIRECTORY_PICTURES, "capture")))
+                    .autoAverage(5, RecorderContants.DEFAULT_SECOND)
+                    .recorderStatusChangeListener(this)
+                    .startPreview();
 
         btnCancel.setOnClickListener(v -> {
             recorder.cancel();
@@ -79,15 +88,15 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
 //            progressBar.setVisibility(View.VISIBLE);
 
             // TODO: 2020-04-22 权限检查
-
-            //开始视频预览
-            ImagerRecorderIml
-                    .getInstance()
-                    .target(this, previewView)
-                    .directory(Objects.requireNonNull(FileUtil.getFilePath(this, Environment.DIRECTORY_PICTURES, "capture")))
-                    .autoAverage(5, RecorderContants.DEFAULT_SECOND)
-                    .recorderStatusChangeListener(this)
-                    .startPreview();
+//
+//            //开始视频预览
+//            ImagerRecorderIml
+//                    .getInstance()
+//                    .target(this, previewView)
+//                    .directory(Objects.requireNonNull(FileUtil.getFilePath(this, Environment.DIRECTORY_PICTURES, "capture")))
+//                    .autoAverage(5, RecorderContants.DEFAULT_SECOND)
+//                    .recorderStatusChangeListener(this)
+//                    .startPreview();
 
 
         });
@@ -101,9 +110,9 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
     @Override
     public void onChange(ImageRecorderStatus status) {
         if (status == ImageRecorderStatus.READY) {
-            //开始拍照
-            ImagerRecorderIml.getInstance().takePhoto();
-            //开始录音
+//            //开始拍照
+//            ImagerRecorderIml.getInstance().takePhoto();
+//            //开始录音
             AudioRecorderIml
                     .getInstance()
                     .init()

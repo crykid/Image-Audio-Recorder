@@ -1,5 +1,6 @@
 package com.margin.recorder;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
@@ -31,5 +32,9 @@ public class MainActivity extends AppCompatActivity {
 
     public void takePic(View view) {
         cameraView.takePicture();
+    }
+
+    public void jump(View view) {
+        startActivity(new Intent(this, ImageAudioRecordActivity.class));
     }
 }
