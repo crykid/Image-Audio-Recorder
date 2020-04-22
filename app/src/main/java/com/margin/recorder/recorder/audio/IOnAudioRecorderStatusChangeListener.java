@@ -5,7 +5,7 @@ package com.margin.recorder.recorder.audio;
  * Created at : 2020-04-20 at 17:19
  * Description:
  */
-public interface IRecordFinishListener {
+public interface IOnAudioRecorderStatusChangeListener {
 
-    void onFinish();
+    void onChange(AudioRecorderStatus status);
 }

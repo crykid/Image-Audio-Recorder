@@ -1,7 +1,6 @@
 package com.margin.recorder.recorder.audio;
 
-import android.content.Context;
-import android.os.Handler;
+import android.support.annotation.NonNull;
 
 import java.util.List;
 
@@ -12,22 +11,20 @@ import java.util.List;
  */
 public interface IAudioRecorder {
 
-    IAudioRecorder init(Context context);
+    IAudioRecorder init();
 
-    IAudioRecorder init(Handler mainHandler);
+    IAudioRecorder statusChangeListener(@NonNull IOnAudioRecorderStatusChangeListener listener);
 
-    IAudioRecorder progressListener(IRecordingListener recordingListener);
+    IAudioRecorder fileName(@NonNull String name);
 
-    IAudioRecorder finishListener(IRecordFinishListener recordingListener);
-
-    IAudioRecorder fileName(String name);
-
-    IAudioRecorder duration(int duration);
+    IAudioRecorder period(int period);
 
     void start();
 
 
     void pause();
+
+    void resume();
 
     void stop();
 
@@ -37,7 +34,15 @@ public interface IAudioRecorder {
 
     void delete(String desFilePath);
 
-    List<String> getAudios(String dir);
+    List<String> getAudios(@NonNull String dir);
+
+    boolean isStart();
+
+    boolean isStop();
+
+    boolean isPause();
+
+    String getStatus();
 
 
 }
