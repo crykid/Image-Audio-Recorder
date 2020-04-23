@@ -6,11 +6,9 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
-import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
@@ -106,7 +104,6 @@ public class ImagerRecorderIml implements IImageRecorder {
         handlerThread.start();
 
         mCameraHandler = new Handler(handlerThread.getLooper());
-
     }
 
 
@@ -117,9 +114,6 @@ public class ImagerRecorderIml implements IImageRecorder {
 
         this.mPreviewView = (AutoFitTextureView) previewView;
         this.mContext = context;
-        Log.d(TAG, "init: *** 请在使用完成后清理 Context ！！！***");
-        Log.d(TAG, "init: *** 请在使用完成后清理 Context ！！！***");
-        Log.d(TAG, "init: *** please release the Context after the mission is completed  ！！！***");
 
         return this;
     }
@@ -177,6 +171,8 @@ public class ImagerRecorderIml implements IImageRecorder {
 
     @Override
     public void startPreview() {
+        //初始化摄像头工具类
+        RecorderCameraUtil.getInstance().init(mContext);
 
         Log.d(TAG, "=== startPreview === ");
         //初始化TextureView，设置监听
@@ -188,7 +184,7 @@ public class ImagerRecorderIml implements IImageRecorder {
             }
         };
 
-        mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+        mCameraManager = RecorderCameraUtil.getInstance().getCameraManager();
 
         //如果UI在初始化时候没有第一时间设置上面的回调，textureView就绪时候无法得知，就需要主动打开摄像头
         if (mPreviewView.isAvailable()) {
@@ -306,32 +302,22 @@ public class ImagerRecorderIml implements IImageRecorder {
     @SuppressLint("MissingPermission")
     private void openCamera(int width, int height) {
         try {
-            for (String cameraId : mCameraManager.getCameraIdList()) {
-                //描述相机设备的属性类
-                final CameraCharacteristics cameraCharacteristics = mCameraManager.getCameraCharacteristics(cameraId);
-                //获取前置or后置的属性
-                final Integer facing = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING);
-                //使用前置摄像头
-                if (facing == CameraCharacteristics.LENS_FACING_BACK) {
-                    continue;
-                }
-                if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
-                    final StreamConfigurationMap map = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-                    if (map != null) {
 
-                        //通过摄像头得到预览尺寸
-                        previewSize = RecorderCameraUtil.getOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height);
-//                        previewSize = new Size(1080,1920);
+            //1.得到指定的相机；
+            mCameraId = RecorderCameraUtil.getInstance().getFrontCameraId();
+            //2.获得相机输出参数;
+            Size[] cameraOutputSizes = RecorderCameraUtil.getInstance().getCameraOutputSizes(mCameraId, SurfaceTexture.class);
+            //3.得到与屏幕匹配的尺寸；
+            previewSize = RecorderCameraUtil.getOptimalSize(cameraOutputSizes, width, height);
+            //4.将参数应用到预览；
 
+            //应用预览吃用到textureView
+            new Handler(mContext.getMainLooper()).post(() ->
+                    mPreviewView.setAspectRation(previewSize.getWidth(), previewSize.getHeight()));
 
-                        mCameraId = cameraId;
-                        break;
-                    }
-                }
-            }
-            //打开摄像头
+            //5.打开摄像头
             mCameraManager.openCamera(mCameraId, mStateCallback, mCameraHandler);
-            Log.d(TAG, "openCamera: " + previewSize.getWidth() + " h = " + previewSize.getHeight());
+
 
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -345,10 +331,6 @@ public class ImagerRecorderIml implements IImageRecorder {
 
         //应用预览尺寸
         surfaceTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
-
-        //应用预览吃用到textureView
-        new Handler(mContext.getMainLooper()).post(() ->
-                mPreviewView.setAspectRation(previewSize.getWidth(), previewSize.getHeight()));
 
 
         Surface previewSurface = new Surface(surfaceTexture);

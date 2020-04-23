@@ -4,9 +4,7 @@ package com.margin.recorder;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
-import android.view.View;
 import android.widget.Button;
-import android.widget.ProgressBar;
 
 import com.margin.recorder.recorder.FileUtil;
 import com.margin.recorder.recorder.RecorderContants;
@@ -17,9 +15,6 @@ import com.margin.recorder.recorder.image.IOnImageRecorderStatusChangeListener;
 import com.margin.recorder.recorder.image.ImageRecorderStatus;
 import com.margin.recorder.recorder.image.ImagerRecorderIml;
 
-import java.io.File;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Objects;
 
 /**
