@@ -103,7 +103,7 @@ public class AudioRecorderIml implements IAudioRecorder {
         // 开始录音
         /* ①Initial：实例化MediaRecorder对象 */
 
-        mMediaRecorder.setMaxDuration(1000 * period);
+//        mMediaRecorder.setMaxDuration(1000 * period);
         try {
             /* ②setAudioSource/setVedioSource */
             mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);// 设置麦克风

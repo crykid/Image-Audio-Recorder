@@ -40,7 +40,7 @@ public class FileUtil {
                 localFile = new File(localFilePath);
             }
             if (!localFile.mkdirs()) {
-                Log.e(TAG, "getFilePath: Directory not created");
+                Log.d(TAG, "getFilePath: Directory not created");
             }
             final String p = localFile.getAbsolutePath();
             Log.d(TAG, "getFilePath: " + p);

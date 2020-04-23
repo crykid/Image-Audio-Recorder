@@ -9,7 +9,6 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Handler;
@@ -58,8 +57,10 @@ public class ImagerRecorderIml implements IImageRecorder {
     //拍照后文件存储路径
     private String mImagesDirectory;
 
+    //记录器目前状态
+    private ImageRecorderStatus mStatus = ImageRecorderStatus.STOP;
+    //记录器状态回调
     private IOnImageRecorderStatusChangeListener mRecorderStatusChangeListener;
-
 
     /**
      * 注意！不使用的时候一定要release
@@ -71,17 +72,18 @@ public class ImagerRecorderIml implements IImageRecorder {
 
 
     private Handler mCameraHandler;
-    private TextureView mPreviewView;
+    private AutoFitTextureView mPreviewView;
 
     private CameraManager mCameraManager;
 
     private CameraDevice mCameraDevice;
+    //预览尺寸，用于调整textureView缓存和UI大小
     private Size previewSize;
+    //摄像头ID，前置or后置
     private String mCameraId;
 
+    //录像or拍照请求
     private CaptureRequest.Builder mPreviewBuilder;
-
-    private ImageRecorderStatus mStatus = ImageRecorderStatus.STOP;
 
 
     //------------ -------------- --------------- ---------------
@@ -105,7 +107,6 @@ public class ImagerRecorderIml implements IImageRecorder {
 
         mCameraHandler = new Handler(handlerThread.getLooper());
 
-
     }
 
 
@@ -114,7 +115,7 @@ public class ImagerRecorderIml implements IImageRecorder {
     @Override
     public IImageRecorder target(@NonNull Activity context, @NonNull TextureView previewView) {
 
-        this.mPreviewView = previewView;
+        this.mPreviewView = (AutoFitTextureView) previewView;
         this.mContext = context;
         Log.d(TAG, "init: *** 请在使用完成后清理 Context ！！！***");
         Log.d(TAG, "init: *** 请在使用完成后清理 Context ！！！***");
@@ -186,9 +187,16 @@ public class ImagerRecorderIml implements IImageRecorder {
                 openCamera(width, height);
             }
         };
-        mPreviewView.setSurfaceTextureListener(listener);
 
         mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+
+        //如果UI在初始化时候没有第一时间设置上面的回调，textureView就绪时候无法得知，就需要主动打开摄像头
+        if (mPreviewView.isAvailable()) {
+
+            openCamera(mPreviewView.getWidth(), mPreviewView.getHeight());
+        } else {
+            mPreviewView.setSurfaceTextureListener(listener);
+        }
 
     }
 
@@ -310,8 +318,12 @@ public class ImagerRecorderIml implements IImageRecorder {
                 if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
                     final StreamConfigurationMap map = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
                     if (map != null) {
+
+                        //通过摄像头得到预览尺寸
                         previewSize = RecorderCameraUtil.getOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height);
-//                        mPreviewView.setRatiowSize(previewSize.getWidth(), previewSize.getHeight());
+//                        previewSize = new Size(1080,1920);
+
+
                         mCameraId = cameraId;
                         break;
                     }
@@ -330,7 +342,15 @@ public class ImagerRecorderIml implements IImageRecorder {
 
     private void startRealPreview() {
         SurfaceTexture surfaceTexture = mPreviewView.getSurfaceTexture();
+
+        //应用预览尺寸
         surfaceTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+
+        //应用预览吃用到textureView
+        new Handler(mContext.getMainLooper()).post(() ->
+                mPreviewView.setAspectRation(previewSize.getWidth(), previewSize.getHeight()));
+
+
         Surface previewSurface = new Surface(surfaceTexture);
 
         try {
@@ -340,7 +360,7 @@ public class ImagerRecorderIml implements IImageRecorder {
 
             //预览对象
             mPreviewBuilder.addTarget(previewSurface);
-            //添加摄像头状态回调
+            //正式开始预览、添加摄像头状态回调
             mCameraDevice.createCaptureSession(Arrays.asList(previewSurface), captureSessionStateCallback, mCameraHandler);
 
             mStatus = ImageRecorderStatus.READY;
@@ -378,12 +398,12 @@ public class ImagerRecorderIml implements IImageRecorder {
     };
 
     private void lockFocus() {
-        try {
-            mPreviewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
-            mCameraCaptureSession.capture(mPreviewBuilder.build(), captureCallback, mCameraHandler);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            mPreviewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+//            mCameraCaptureSession.capture(mPreviewBuilder.build(), captureCallback, mCameraHandler);
+//        } catch (CameraAccessException e) {
+//            e.printStackTrace();
+//        }
     }
 
     /**

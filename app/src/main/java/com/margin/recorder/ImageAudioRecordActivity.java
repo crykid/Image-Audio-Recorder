@@ -4,8 +4,6 @@ package com.margin.recorder;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
-import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
@@ -14,10 +12,10 @@ import com.margin.recorder.recorder.FileUtil;
 import com.margin.recorder.recorder.RecorderContants;
 import com.margin.recorder.recorder.audio.AudioRecorderIml;
 import com.margin.recorder.recorder.audio.IAudioRecorder;
+import com.margin.recorder.recorder.image.AutoFitTextureView;
 import com.margin.recorder.recorder.image.IOnImageRecorderStatusChangeListener;
-import com.margin.recorder.recorder.image.ImagerRecorderIml;
 import com.margin.recorder.recorder.image.ImageRecorderStatus;
-import com.margin.recorder.recorder.image.RecorderTextureView;
+import com.margin.recorder.recorder.image.ImagerRecorderIml;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -36,17 +34,15 @@ import java.util.Objects;
  */
 public class ImageAudioRecordActivity extends AppCompatActivity implements IOnImageRecorderStatusChangeListener {
     private static final String TAG = "RecordActivity";
-    ProgressBar progressBar;
     Button btnStart, btnStop, btnCancel;
     IAudioRecorder recorder;
-//    RecorderTextureView previewView;
-    TextureView previewView;
+    //    RecorderTextureView previewView;
+    AutoFitTextureView previewView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_record);
-        progressBar = findViewById(R.id.pb_record_progress);
 
         previewView = findViewById(R.id.texturev_record_content);
         btnStart = findViewById(R.id.btn_record_start);
@@ -56,18 +52,17 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
 
         recorder = AudioRecorderIml.getInstance();
 
-        ImagerRecorderIml
-                    .getInstance()
-                    .target(this, previewView)
-                    .directory(Objects.requireNonNull(FileUtil.getFilePath(this, Environment.DIRECTORY_PICTURES, "capture")))
-                    .autoAverage(5, RecorderContants.DEFAULT_SECOND)
-                    .recorderStatusChangeListener(this)
-                    .startPreview();
+//        ImagerRecorderIml
+//                    .getInstance()
+//                    .target(this, previewView)
+//                    .directory(Objects.requireNonNull(FileUtil.getFilePath(this, Environment.DIRECTORY_PICTURES, "capture")))
+//                    .autoAverage(5, RecorderContants.DEFAULT_SECOND)
+//                    .recorderStatusChangeListener(this)
+//                    .startPreview();
 
         btnCancel.setOnClickListener(v -> {
             recorder.cancel();
             changeBtn();
-            progressBar.setVisibility(View.GONE);
         });
 
         btnStart.setOnClickListener(v -> {
@@ -89,21 +84,20 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
 
             // TODO: 2020-04-22 权限检查
 //
-//            //开始视频预览
-//            ImagerRecorderIml
-//                    .getInstance()
-//                    .target(this, previewView)
-//                    .directory(Objects.requireNonNull(FileUtil.getFilePath(this, Environment.DIRECTORY_PICTURES, "capture")))
-//                    .autoAverage(5, RecorderContants.DEFAULT_SECOND)
-//                    .recorderStatusChangeListener(this)
-//                    .startPreview();
+            //开始视频预览
+            ImagerRecorderIml
+                    .getInstance()
+                    .target(this, previewView)
+                    .directory(Objects.requireNonNull(FileUtil.getFilePath(this, Environment.DIRECTORY_PICTURES, "capture")))
+                    .autoAverage(5, RecorderContants.DEFAULT_SECOND)
+                    .recorderStatusChangeListener(this)
+                    .startPreview();
 
 
         });
         btnStop.setOnClickListener(v -> {
             recorder.stop();
             changeBtn();
-            progressBar.setVisibility(View.GONE);
         });
     }
 
@@ -113,13 +107,13 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
 //            //开始拍照
 //            ImagerRecorderIml.getInstance().takePhoto();
 //            //开始录音
-            AudioRecorderIml
-                    .getInstance()
-                    .init()
-                    .fileName(getFileName())
-                    .period(RecorderContants.DEFAULT_SECOND)
-                    .statusChangeListener(s -> Log.d(TAG, "onCreate: " + s))
-                    .start();
+//            AudioRecorderIml
+//                    .getInstance()
+//                    .init()
+//                    .fileName(getFileName())
+//                    .period(RecorderContants.DEFAULT_SECOND)
+//                    .statusChangeListener(s -> Log.d(TAG, "onCreate: " + s))
+//                    .start();
         }
     }
 
@@ -133,12 +127,6 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         if (recorder.isStop()) {
             btnStart.setText("start");
         }
-    }
-
-    private String getFileName() {
-        String name = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-//        String file
-        return FileUtil.getFilePath(this, Environment.DIRECTORY_MUSIC, "audio") + File.separator + name + ".wav";
     }
 
 
