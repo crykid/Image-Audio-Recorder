@@ -51,7 +51,7 @@ public class FileUtil {
 
                 //path=/storage/emulated/packageName/files/Pictures/camera/1572936803409.jpg
                 final String localFilePath = Environment.getExternalStorageDirectory().getAbsolutePath()
-                        + File.separator + getAppRootDirectory()
+                        + File.separator + getAppRootDirectory(context)
                         + File.separator + PROVIDER_NAME_BEFORE_Q
                         + File.separator + type
                         + File.separator + directory;
@@ -72,8 +72,9 @@ public class FileUtil {
     }
 
 
-    private static String getAppRootDirectory() {
-        return "com.margin.recorder";
+    private static String getAppRootDirectory(Context context) {
+//        return "com.margin.recorder";
+        return context.getApplicationContext().getPackageName();
     }
 
 
@@ -90,40 +91,14 @@ public class FileUtil {
         }
     }
 
-//    public static boolean writeImageToFile(Image image, String filePath) {
-//
-//        if (image == null) {
-//            return false;
-//        }
-//        ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
-//        byte[] data = new byte[byteBuffer.remaining()];
-//        byteBuffer.get(data);
-//        FileOutputStream fos = null;
-//        try {
-//            fos = new FileOutputStream(new File(filePath));
-//            fos.write(data);
-//            return true;
-//        } catch (FileNotFoundException e) {
-//            e.printStackTrace();
-//            Log.e(TAG, " -- writeImageToFile: 存储照片出错 --", e);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//            Log.e(TAG, " -- writeImageToFile: 存储照片出错 --", e);
-//        } finally {
-//            try {
-//                fos.close();
-//                fos = null;
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            } finally {
-//                image.close();
-//                image = null;
-//            }
-//        }
-//        return false;
-//    }
 
-
+    /**
+     * 保存图片
+     *
+     * @param image
+     * @param fullFileName
+     * @return
+     */
     public static boolean writeImageToFile(Image image, String fullFileName) {
 
         assert image == null : "Image can not be null !";
@@ -133,11 +108,15 @@ public class FileUtil {
         byte[] data = new byte[byteBuffer.remaining()];
         byteBuffer.get(data);
 
+        //生成bitmap
         Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-//        bitmap = scalBitmap(bitmap);
-
+        //读取图片旋转角度
+        int degree = readPictureDegree(data);
+        Log.d(TAG, "writeImageToFile === image rotate angle: " + degree);
+        //根据旋转角度对图片进行纠正旋转
+        bitmap = rotateBitmap(bitmap, degree);
+        //保存图片
         FileOutputStream fos;
-
         try {
             fos = new FileOutputStream(fullFileName);
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
@@ -154,16 +133,32 @@ public class FileUtil {
         return false;
     }
 
-    public static Bitmap scalBitmap(Bitmap bitmap) {
+    /**
+     * 根据角度对图片旋转，并做镜像旋转
+     *
+     * @param bitmap
+     * @param degree
+     * @return
+     */
+    private static Bitmap rotateBitmap(Bitmap bitmap, int degree) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
 
         Matrix matrix = new Matrix();
+        if (degree > 0) {
+            matrix.postRotate(degree);
+        }
         matrix.postScale(-1, 1);
         return Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
     }
 
 
+    /**
+     * 读取图片的旋转角度
+     *
+     * @param img
+     * @return
+     */
     private static int readPictureDegree(byte[] img) {
 
         //该API 在7.0以上才可以用
@@ -192,23 +187,19 @@ public class FileUtil {
             int orientation = exifInterface.getAttributeInt(
                     ExifInterface.TAG_ORIENTATION,
                     ExifInterface.ORIENTATION_NORMAL);
-            switch (orientation) {
-                case ExifInterface.ORIENTATION_ROTATE_90:
-                    degree = 90;
-                    break;
-                case ExifInterface.ORIENTATION_ROTATE_180:
-                    degree = 180;
-                    break;
-                case ExifInterface.ORIENTATION_ROTATE_270:
-                    degree = 270;
-                    break;
-                default:
-                    degree = 0;
-                    break;
+
+            if (orientation == ExifInterface.ORIENTATION_ROTATE_90) {
+                degree = 90;
+            } else if (orientation == ExifInterface.ORIENTATION_ROTATE_180) {
+                degree = 180;
+            } else if (orientation == ExifInterface.ORIENTATION_ROTATE_270) {
+                degree = 270;
+            } else {
+                degree = 0;
             }
 
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "readPictureDegree24: ", e);
         }
         return degree;
     }
@@ -260,11 +251,6 @@ public class FileUtil {
             offset += length;
             length = 0;
         }
-
-        // TODO: 2020-04-24
-        // TODO: 2020-04-24
-        // TODO: 2020-04-24
-        // TODO: 2020-04-24 https://www.jianshu.com/p/dc31c25c3d48
 
         // JEITA CP-3451 Exif Version 2.2
         if (length > 8) {
