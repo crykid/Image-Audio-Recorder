@@ -93,16 +93,19 @@ public class FileUtil {
 
 
     /**
-     * 保存图片
+     * 保存图片.
+     * 根据 <Strong>前置</Strong> 摄像头旋转角度对图片进行旋转纠正
+     * 同时前置摄像头照片是<strong>左右</strong>镜像的，对照片进行<strong>左右</strong>镜像旋转！
      *
      * @param image
-     * @param fullFileName
+     * @param fullFileName 包含路径以及文件名称的全路径
      * @return
      */
     public static boolean writeImageToFile(Image image, String fullFileName) {
 
         assert image == null : "Image can not be null !";
-        assert !TextUtils.isEmpty(fullFileName) : "the fullFileName can not be empty !";
+        if (TextUtils.isEmpty(fullFileName))
+            throw new IllegalArgumentException("the fullFileName can not be empty !");
 
         ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
         byte[] data = new byte[byteBuffer.remaining()];
@@ -113,7 +116,7 @@ public class FileUtil {
         //读取图片旋转角度
         int degree = readPictureDegree(data);
         Log.d(TAG, "writeImageToFile === image rotate angle: " + degree);
-        //根据旋转角度对图片进行纠正旋转
+        //根据旋转角度对图片进行纠正旋转,注意，前置不一定镜像旋转！！！
         bitmap = rotateBitmap(bitmap, degree);
         //保存图片
         FileOutputStream fos;
@@ -122,6 +125,7 @@ public class FileUtil {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
             fos.flush();
             fos.close();
+            image.close();
             Log.d(TAG, "writeImageToFile: success !");
             return true;
         } catch (FileNotFoundException e) {

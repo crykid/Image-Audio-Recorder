@@ -51,6 +51,9 @@ public class ImageRecorderIml implements IImageRecorder {
 
     private static final String TAG = "ImageRecorderIml";
 
+    /**
+     *需要注意，这里的旋转仅针对前置摄像头，后置不旋转
+     */
     private static final SparseIntArray PHOTO_ORITATION = new SparseIntArray();
 
     static {
@@ -96,7 +99,7 @@ public class ImageRecorderIml implements IImageRecorder {
 
     private CameraDevice mCameraDevice;
     //预览尺寸，用于调整textureView缓存和UI大小
-    private Size previewSize, photoSize;
+    private Size previewSize;
     //摄像头ID，前置or后置
     private String mCameraId;
 
@@ -403,7 +406,7 @@ public class ImageRecorderIml implements IImageRecorder {
 
     private void initReaderAndSurface() {
         mImageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), ImageFormat.JPEG, 2);
-        mImageReader.setOnImageAvailableListener(photoReaderListener, null);
+        mImageReader.setOnImageAvailableListener(photoReaderListener, mCameraHandler);
         readerSurface = mImageReader.getSurface();
     }
 
@@ -428,12 +431,12 @@ public class ImageRecorderIml implements IImageRecorder {
 
 
             captureBuilder.addTarget(readerSurface);
-            CaptureRequest phtotoRequest = captureBuilder.build();
+            CaptureRequest captureRequest = captureBuilder.build();
 
             //先停止实时视频预览
             mCameraCaptureSession.stopRepeating();
             //拍照
-            mCameraCaptureSession.capture(phtotoRequest, captureSessionCaptureCallback, mCameraHandler);
+            mCameraCaptureSession.capture(captureRequest, captureSessionCaptureCallback, mCameraHandler);
         } catch (CameraAccessException e) {
             Log.e(TAG, "lockFocus: ", e);
         }

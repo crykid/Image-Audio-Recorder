@@ -4,6 +4,7 @@ package com.margin.recorder;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.widget.Button;
 
 import com.margin.recorder.recorder.FileUtil;
@@ -73,10 +74,9 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         });
 
         btnLock.setOnClickListener(v -> {
-            if (status == ImageRecorderStatus.READY) {
-                ImageRecorderIml.getInstance().takePhoto();
+            Log.d(TAG, "onCreate: RecorderStatus = " + status);
+            ImageRecorderIml.getInstance().takePhoto();
 
-            }
 
         });
         btnStop.setOnClickListener(v -> {
@@ -90,6 +90,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
     @Override
     public void onChange(ImageRecorderStatus status) {
         this.status = status;
+        Log.d(TAG, "onChange: RecorderStatus = " + status);
         if (status == ImageRecorderStatus.READY) {
 
 //            //开始拍照
@@ -116,8 +117,6 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
             btnStart.setText("start");
         }
     }
-
-
 
 
 }
