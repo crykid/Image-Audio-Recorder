@@ -31,6 +31,7 @@ public class AutoFitTextureView extends TextureView {
 
     /**
      * 设置宽高比
+     * 注意：调用该方法时候注意线程
      *
      * @param width
      * @param height

@@ -38,8 +38,21 @@
             android:id="@+id/btn_record_start"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="1px"
             android:background="#f6f6f6"
             android:text="start"
+            android:textColor="#2196F3"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/btn_record_cancel" />
+
+
+        <Button
+            android:id="@+id/btn_record_lock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="1px"
+            android:background="#f6f6f6"
+            android:text="lock"
             android:textColor="#2196F3"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toEndOf="@+id/btn_record_cancel" />
@@ -49,6 +62,7 @@
             android:id="@+id/btn_record_stop"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="1px"
             android:background="#f6f6f6"
             android:text="stop"
             android:textColor="#FF5722"

@@ -12,8 +12,10 @@ import android.util.Size;
 import com.margin.recorder.recorder.IRecorderManager;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 
 /**
  * Created by : mr.lu
@@ -93,15 +95,21 @@ public class RecorderCameraUtil implements IRecorderManager {
      * @param clz      输出类
      * @return
      */
-    public Size[] getCameraOutputSizes(String cameraId, Class clz) {
+    public List<Size> getCameraOutputSizes(String cameraId, Class clz) {
         try {
-            CameraCharacteristics cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId);
-            StreamConfigurationMap configs = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-
-            return configs.getOutputSizes(clz);
-
+            CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraId);
+            StreamConfigurationMap configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            List<Size> sizes = Arrays.asList(configs.getOutputSizes(clz));
+            Collections.sort(sizes, new Comparator<Size>() {
+                @Override
+                public int compare(Size o1, Size o2) {
+                    return o1.getWidth() * o1.getHeight() - o2.getWidth() * o2.getHeight();
+                }
+            });
+            Collections.reverse(sizes);
+            return sizes;
         } catch (CameraAccessException e) {
-            Log.e(TAG, "getCameraOutputSizes: ", e);
+            e.printStackTrace();
         }
 
         return null;

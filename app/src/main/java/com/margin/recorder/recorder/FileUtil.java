@@ -1,11 +1,18 @@
 package com.margin.recorder.recorder;
 
+import android.Manifest;
 import android.content.Context;
+import android.media.Image;
 import android.os.Build;
 import android.os.Environment;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * Created by : mr.lu
@@ -52,6 +59,7 @@ public class FileUtil {
         return null;
     }
 
+
     private static String getAppRootDirectory() {
         return "com.margin.recorder";
     }
@@ -68,6 +76,41 @@ public class FileUtil {
         if (file.exists()) {
             file.delete();
         }
+    }
+
+    public static void writeImageToFile(Image image, String filePath) {
+//        if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.WRITE_EXTERNAL_STORAGE)
+//                != PackageManager.PERMISSION_GRANTED) {
+//            requestStoragePermission();
+//        } else {
+//            String filePath = Environment.getExternalStorageDirectory() + "/DCIM/Camera/001.jpg";
+//            Image image = photoReader.acquireNextImage();
+        if (image == null) {
+            return;
+        }
+        ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
+        byte[] data = new byte[byteBuffer.remaining()];
+        byteBuffer.get(data);
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(new File(filePath));
+            fos.write(data);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                fos.close();
+                fos = null;
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                image.close();
+                image = null;
+            }
+        }
+//        }
     }
 
 }

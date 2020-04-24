@@ -9,16 +9,19 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.util.Log;
 import android.util.Size;
+import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 
 import com.margin.recorder.recorder.RecorderContants;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -37,9 +40,19 @@ import java.util.List;
  * | 注：该模块不负责权限的检查！|
  * * --------------------- *
  */
-public class ImagerRecorderIml implements IImageRecorder {
+public class ImageRecorderIml implements IImageRecorder {
 
-    private static final String TAG = "ImagerRecorderIml";
+    private static final String TAG = "ImageRecorderIml";
+
+    private static final SparseIntArray PHOTO_ORITATION = new SparseIntArray();
+
+    static {
+        PHOTO_ORITATION.append(Surface.ROTATION_0, 90);
+        PHOTO_ORITATION.append(Surface.ROTATION_90, 0);
+        PHOTO_ORITATION.append(Surface.ROTATION_180, 270);
+        PHOTO_ORITATION.append(Surface.ROTATION_270, 180);
+    }
+
     //拍照策略，默认是--自动随机--的
     private Strategy mStrategy = Strategy.AUTO_RANDOM;
 
@@ -76,26 +89,35 @@ public class ImagerRecorderIml implements IImageRecorder {
 
     private CameraDevice mCameraDevice;
     //预览尺寸，用于调整textureView缓存和UI大小
-    private Size previewSize;
+    private Size previewSize, photoSize;
     //摄像头ID，前置or后置
     private String mCameraId;
 
     //录像or拍照请求
     private CaptureRequest.Builder mPreviewBuilder;
 
+    //摄像头对话
+    private CameraCaptureSession mCameraCaptureSession;
+
+
+    private ImageReader mImageReader;
+    //拍照的预览Surface
+    private Surface readerSurface;
+    private int displayRotation;
+
 
     //------------ -------------- --------------- ---------------
 
 
     private final static class Holder {
-        private final static ImagerRecorderIml INSTANCE = new ImagerRecorderIml();
+        private final static ImageRecorderIml INSTANCE = new ImageRecorderIml();
     }
 
-    public static ImagerRecorderIml getInstance() {
+    public static ImageRecorderIml getInstance() {
         return Holder.INSTANCE;
     }
 
-    private ImagerRecorderIml() {
+    private ImageRecorderIml() {
 
         /*创建一个Thread供Camera运行使用，shiyong HandelrThread而不是Thread是因为HandlerThread给我们创建了Looper
          *不用我们自己创建
@@ -156,7 +178,7 @@ public class ImagerRecorderIml implements IImageRecorder {
 
 
     @Override
-    public ImagerRecorderIml directory(@NonNull String directory) {
+    public ImageRecorderIml directory(@NonNull String directory) {
 
         this.mImagesDirectory = directory;
 
@@ -171,29 +193,30 @@ public class ImagerRecorderIml implements IImageRecorder {
 
     @Override
     public void startPreview() {
-        //初始化摄像头工具类
-        RecorderCameraUtil.getInstance().init(mContext);
+
 
         Log.d(TAG, "=== startPreview === ");
-        //初始化TextureView，设置监听
-        final TextureView.SurfaceTextureListener listener = new SurfaceTextureListenerIml() {
-            @Override
-            public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-                Log.d(TAG, " === onSurfaceTextureAvailable === ");
-                openCamera(width, height);
-            }
-        };
-
-        mCameraManager = RecorderCameraUtil.getInstance().getCameraManager();
+        initCamera();
 
         //如果UI在初始化时候没有第一时间设置上面的回调，textureView就绪时候无法得知，就需要主动打开摄像头
         if (mPreviewView.isAvailable()) {
-
-            openCamera(mPreviewView.getWidth(), mPreviewView.getHeight());
+            openCamera();
         } else {
-            mPreviewView.setSurfaceTextureListener(listener);
+            mPreviewView.setSurfaceTextureListener(surfaceTextureListener);
         }
 
+    }
+
+    private void initCamera() {
+        //初始化摄像头工具类
+        RecorderCameraUtil.getInstance().init(mContext);
+        mCameraManager = RecorderCameraUtil.getInstance().getCameraManager();
+        //1.得到指定的相机；
+        mCameraId = RecorderCameraUtil.getInstance().getFrontCameraId();
+        //2.获得相机输出参数;
+        List<Size> cameraOutputSizes = RecorderCameraUtil.getInstance().getCameraOutputSizes(mCameraId, SurfaceTexture.class);
+        //3.得到与屏幕匹配的尺寸；
+        previewSize = cameraOutputSizes.get(0);
     }
 
     @Override
@@ -259,8 +282,8 @@ public class ImagerRecorderIml implements IImageRecorder {
     }
 
     private String generateFileName() {
-
-        return mFormat.format(new Date());
+        final String name = mFormat.format(new Date());
+        return mImagesDirectory + File.separator + name + ".jpg";
     }
 
 
@@ -269,55 +292,21 @@ public class ImagerRecorderIml implements IImageRecorder {
     }
 
 
-    //更新来自摄像头的数据
-    private CameraDevice.StateCallback mStateCallback = new CameraDevice.StateCallback() {
-        @Override
-        public void onOpened(@NonNull CameraDevice camera) {
-
-            Log.d(TAG, "onOpened: ");
-
-            mCameraDevice = camera;
-            startRealPreview();
-
-
-        }
-
-        @Override
-        public void onDisconnected(@NonNull CameraDevice camera) {
-            Log.d(TAG, "onDisconnected: ");
-        }
-
-        @Override
-        public void onError(@NonNull CameraDevice camera, int error) {
-            Log.d(TAG, "onError: ");
-        }
-    };
-
     /**
      * surface ready的时候打开Camera
-     *
-     * @param width  surface的宽
-     * @param height surface的高
      */
     @SuppressLint("MissingPermission")
-    private void openCamera(int width, int height) {
+    private void openCamera() {
+
+        Log.d(TAG, " === openCamera === ");
         try {
+            //将预览尺寸应用到TextureView
+            new Handler(mContext.getMainLooper()).post(() -> {
+                mPreviewView.setAspectRation(previewSize.getWidth(), previewSize.getHeight());
+            });
 
-            //1.得到指定的相机；
-            mCameraId = RecorderCameraUtil.getInstance().getFrontCameraId();
-            //2.获得相机输出参数;
-            Size[] cameraOutputSizes = RecorderCameraUtil.getInstance().getCameraOutputSizes(mCameraId, SurfaceTexture.class);
-            //3.得到与屏幕匹配的尺寸；
-            previewSize = RecorderCameraUtil.getOptimalSize(cameraOutputSizes, width, height);
-            //4.将参数应用到预览；
-
-            //应用预览吃用到textureView
-            new Handler(mContext.getMainLooper()).post(() ->
-                    mPreviewView.setAspectRation(previewSize.getWidth(), previewSize.getHeight()));
-
-            //5.打开摄像头
-            mCameraManager.openCamera(mCameraId, mStateCallback, mCameraHandler);
-
+            //打开摄像头
+            mCameraManager.openCamera(mCameraId, mCameraStateCallback, mCameraHandler);
 
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -332,87 +321,105 @@ public class ImagerRecorderIml implements IImageRecorder {
         //应用预览尺寸
         surfaceTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
 
-
         Surface previewSurface = new Surface(surfaceTexture);
 
         try {
+            //创建预览请求
             mPreviewBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             //自动对焦
             mPreviewBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-
             //预览对象
             mPreviewBuilder.addTarget(previewSurface);
-            //正式开始预览、添加摄像头状态回调
+            //创建预览请求对话
             mCameraDevice.createCaptureSession(Arrays.asList(previewSurface), captureSessionStateCallback, mCameraHandler);
 
-            mStatus = ImageRecorderStatus.READY;
-            if (mRecorderStatusChangeListener != null) {
-                mRecorderStatusChangeListener.onChange(mStatus);
-            }
+
         } catch (CameraAccessException e) {
             e.printStackTrace();
             Log.e(TAG, "onOpened: ", e);
         }
     }
 
-    CameraCaptureSession mCameraCaptureSession;
-    //接收摄像头捕获的状态的更新
-    private CameraCaptureSession.StateCallback captureSessionStateCallback = new CameraCaptureSession.StateCallback() {
-
-        @Override
-        public void onConfigured(@NonNull CameraCaptureSession session) {
-            CaptureRequest request = mPreviewBuilder.build();
-            try {
-                mCameraCaptureSession = session;
-                // 设置成预览
-                session.setRepeatingRequest(request, null, mCameraHandler);
-
-            } catch (CameraAccessException e) {
-                e.printStackTrace();
-                Log.e(TAG, "onConfigured: ", e);
-            }
-        }
-
-        @Override
-        public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-            stopPreview();
-        }
-    };
 
     private void lockFocus() {
-//        try {
-//            mPreviewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
-//            mCameraCaptureSession.capture(mPreviewBuilder.build(), captureCallback, mCameraHandler);
-//        } catch (CameraAccessException e) {
-//            e.printStackTrace();
-//        }
+
     }
 
-    /**
-     * 拍照回调
-     */
-    private CameraCaptureSession.CaptureCallback captureCallback = new CameraCaptureSession.CaptureCallback() {
-        @Override
-        public void onCaptureStarted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, long timestamp, long frameNumber) {
-            super.onCaptureStarted(session, request, timestamp, frameNumber);
-            try {
-                session.setRepeatingRequest(request, null, mCameraHandler);
-            } catch (CameraAccessException e) {
-                e.printStackTrace();
-            }
-        }
-    };
 
     private void stopPreview() {
-        // TODO: 2020/4/22 停止预览
-//        if (mCapterSeesion != null) {
-//            mCapterSeesion.close();
-//            mCapterSeesion = null;
-//        }
+
         if (mCameraDevice != null) {
             mCameraDevice.close();
             mCameraDevice = null;
         }
 
     }
+    //------------------------------------surfaceTextureListener/callback-----------------------------------------
+
+    //TextureView 的Surface状态监听，用于TextureView就绪后开始后续任务
+    final private TextureView.SurfaceTextureListener surfaceTextureListener = new SurfaceTextureListenerIml() {
+        @Override
+        public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+            Log.d(TAG, " === onSurfaceTextureAvailable ===  width = " + width + " height = " + height);
+            openCamera();
+        }
+    };
+
+    //摄像头状态回调，就绪后可以创建相机会话
+    final private CameraDevice.StateCallback mCameraStateCallback = new CameraDevice.StateCallback() {
+        @Override
+        public void onOpened(@NonNull CameraDevice camera) {
+
+            Log.d(TAG, " -- CameraState : onOpened ");
+
+            mCameraDevice = camera;
+
+            //初始化预览
+            startRealPreview();
+
+        }
+
+        @Override
+        public void onDisconnected(@NonNull CameraDevice camera) {
+            Log.d(TAG, " -- CameraState : onDisconnected ");
+        }
+
+        @Override
+        public void onError(@NonNull CameraDevice camera, int error) {
+            Log.d(TAG, " -- CameraState : onError ");
+        }
+    };
+
+
+    //相机会话状态回调
+    final private CameraCaptureSession.StateCallback captureSessionStateCallback = new CameraCaptureSession.StateCallback() {
+
+        @Override
+        public void onConfigured(@NonNull CameraCaptureSession session) {
+            CaptureRequest request = mPreviewBuilder.build();
+            Log.d(TAG, " -- onConfigured: ");
+            try {
+                mCameraCaptureSession = session;
+                // 设置成预览
+                session.setRepeatingRequest(request, null, mCameraHandler);
+
+                //更新预览状态
+                mStatus = ImageRecorderStatus.READY;
+                if (mRecorderStatusChangeListener != null) {
+                    mRecorderStatusChangeListener.onChange(mStatus);
+                }
+
+            } catch (CameraAccessException e) {
+                Log.e(TAG, " -- onConfigured: ", e);
+            }
+        }
+
+        @Override
+        public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+            stopPreview();
+            Log.e(TAG, " -- onConfigureFailed: ");
+        }
+    };
+
+    //------------------------------------surfaceTextureListener/callback-----------------------------------------
 }
