@@ -66,7 +66,8 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
                     .directory(Objects.requireNonNull(FileUtil.getFilePath(this, Environment.DIRECTORY_PICTURES, "capture")))
                     .autoAverage(5, RecorderContants.DEFAULT_SECOND)
                     .recorderStatusChangeListener(this)
-                    .startPreview();
+                    .prepare();
+            ImageRecorderIml.getInstance().startPreview();
 
 
         });
@@ -115,6 +116,8 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
             btnStart.setText("start");
         }
     }
+
+
 
 
 }

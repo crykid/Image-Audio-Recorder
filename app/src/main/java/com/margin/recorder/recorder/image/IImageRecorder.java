@@ -1,7 +1,6 @@
 package com.margin.recorder.recorder.image;
 
 import android.app.Activity;
-import android.content.Context;
 import android.support.annotation.NonNull;
 import android.view.TextureView;
 
@@ -25,6 +24,8 @@ public interface IImageRecorder {
     IImageRecorder directory(@NonNull String directory);
 
     IImageRecorder recorderStatusChangeListener(@NonNull IOnImageRecorderStatusChangeListener listener);
+
+    void prepare();
 
     void startPreview();
 

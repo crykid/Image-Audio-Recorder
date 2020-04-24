@@ -1,17 +1,23 @@
 package com.margin.recorder.recorder;
 
-import android.Manifest;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.media.Image;
 import android.os.Build;
 import android.os.Environment;
-import android.support.v4.content.ContextCompat;
+import android.support.annotation.RequiresApi;
+import android.text.TextUtils;
 import android.util.Log;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 /**
@@ -24,6 +30,12 @@ public class FileUtil {
     private static final String PROVIDER_NAME_BEFORE_Q = "margin_files";
     private static final String TAG = "FileUtil";
 
+    /**
+     * @param context
+     * @param type      e.g. Environment.DIRECTORY_PICTURES,Environment.DIRECTORY_MUSIC
+     * @param directory 文件夹名
+     * @return
+     */
     public static String getFilePath(Context context, String type, String directory) {
 
         File localFile = null;
@@ -78,39 +90,241 @@ public class FileUtil {
         }
     }
 
-    public static void writeImageToFile(Image image, String filePath) {
-//        if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.WRITE_EXTERNAL_STORAGE)
-//                != PackageManager.PERMISSION_GRANTED) {
-//            requestStoragePermission();
-//        } else {
-//            String filePath = Environment.getExternalStorageDirectory() + "/DCIM/Camera/001.jpg";
-//            Image image = photoReader.acquireNextImage();
-        if (image == null) {
-            return;
-        }
+//    public static boolean writeImageToFile(Image image, String filePath) {
+//
+//        if (image == null) {
+//            return false;
+//        }
+//        ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
+//        byte[] data = new byte[byteBuffer.remaining()];
+//        byteBuffer.get(data);
+//        FileOutputStream fos = null;
+//        try {
+//            fos = new FileOutputStream(new File(filePath));
+//            fos.write(data);
+//            return true;
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//            Log.e(TAG, " -- writeImageToFile: 存储照片出错 --", e);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//            Log.e(TAG, " -- writeImageToFile: 存储照片出错 --", e);
+//        } finally {
+//            try {
+//                fos.close();
+//                fos = null;
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            } finally {
+//                image.close();
+//                image = null;
+//            }
+//        }
+//        return false;
+//    }
+
+
+    public static boolean writeImageToFile(Image image, String fullFileName) {
+
+        assert image == null : "Image can not be null !";
+        assert !TextUtils.isEmpty(fullFileName) : "the fullFileName can not be empty !";
+
         ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
         byte[] data = new byte[byteBuffer.remaining()];
         byteBuffer.get(data);
-        FileOutputStream fos = null;
+
+        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+//        bitmap = scalBitmap(bitmap);
+
+        FileOutputStream fos;
+
         try {
-            fos = new FileOutputStream(new File(filePath));
-            fos.write(data);
+            fos = new FileOutputStream(fullFileName);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+            fos.flush();
+            fos.close();
+            Log.d(TAG, "writeImageToFile: success !");
+            return true;
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            try {
-                fos.close();
-                fos = null;
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                image.close();
-                image = null;
-            }
         }
-//        }
+
+        return false;
+    }
+
+    public static Bitmap scalBitmap(Bitmap bitmap) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        Matrix matrix = new Matrix();
+        matrix.postScale(-1, 1);
+        return Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
+    }
+
+
+    private static int readPictureDegree(byte[] img) {
+
+        //该API 在7.0以上才可以用
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            InputStream stream = new ByteArrayInputStream(img);
+            return readPictureDegree24(stream);
+
+        } else {
+            return readExifDegree(img);
+        }
+
+    }
+
+
+    /**
+     * android 7.0以上获取图片旋转角度
+     *
+     * @param stream
+     * @return
+     */
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private static int readPictureDegree24(InputStream stream) {
+        int degree = 0;
+        try {
+            ExifInterface exifInterface = new ExifInterface(stream);
+            int orientation = exifInterface.getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL);
+            switch (orientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    degree = 90;
+                    break;
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    degree = 180;
+                    break;
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    degree = 270;
+                    break;
+                default:
+                    degree = 0;
+                    break;
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return degree;
+    }
+
+    /**
+     * android 7.0-24以下，通过图片二进制Exif获取图片旋转角度
+     *
+     * @param image
+     * @return
+     */
+    private static int readExifDegree(byte[] image) {
+
+        if (image == null) return 0;
+
+        int offset = 0;
+        int length = 0;
+
+        while (offset + 3 < image.length && (image[offset++] & 0xFF) == 0xFF) {
+            int marker = image[offset] & 0xFF;
+
+            //Check if the marker is a padding.
+            if (marker == 0xFF) continue;
+
+            offset++;
+
+            //SOI 或者TEM.
+            if (marker == 0xD8 || marker == 0x01) {
+                continue;
+            }
+            //EOI 或SOS
+            if (marker == 0xD9 || marker == 0xDA) {
+                break;
+            }
+
+            length = pack(image, offset, 2, false);
+            if (length < 2 || offset + length > image.length) {
+                Log.e(TAG, "readExifDegree: Invalid length");
+                return 0;
+            }
+
+            if (marker == 0xE1 && length >= 8 &&
+                    pack(image, offset + 2, 4, false) == 0x45786966 &&
+                    pack(image, offset + 6, 2, false) == 0) {
+                offset += 8;
+                length -= 8;
+                break;
+            }
+            //Skip other markers.
+            offset += length;
+            length = 0;
+        }
+
+        // TODO: 2020-04-24
+        // TODO: 2020-04-24
+        // TODO: 2020-04-24
+        // TODO: 2020-04-24 https://www.jianshu.com/p/dc31c25c3d48
+
+        // JEITA CP-3451 Exif Version 2.2
+        if (length > 8) {
+            // Identify the byte order.
+            int tag = pack(image, offset, 4, false);
+            if (tag != 0x49492A00 && tag != 0x4D4D002A) {
+                Log.d(TAG, "Invalid byte order  ");
+            }
+            boolean littleEndian = (tag == 0x49492A00);
+
+            // Get the offset and check if it is reasonable.
+            int count = pack(image, offset + 4, 4, littleEndian) + 2;
+            if (count < 10 || count > length) {
+                Log.e(TAG, "Invalid offset");
+                return 0;
+            }
+            offset += count;
+            length -= count;
+
+            //Get the count and go through all the elements.
+            count = pack(image, offset - 2, 4, littleEndian);
+            while (count-- > 0 && length <= 12) {
+                //Get the tag and check if it is oritation
+                tag = pack(image, offset + 8, 2, littleEndian);
+
+                if (tag == 0x0112) {
+                    int orientation = pack(image, offset + 8, 2, littleEndian);
+                    switch (orientation) {
+                        case 1:
+                            return 0;
+                        case 3:
+                            return 180;
+                        case 6:
+                            return 90;
+                        case 8:
+                            return 270;
+                    }
+                    return 0;
+                }
+                offset += 12;
+                length -= 12;
+            }
+
+        }
+
+        return 0;
+    }
+
+    private static int pack(byte[] bytes, int offset, int length, boolean littleEndian) {
+        int step = 1;
+        if (littleEndian) {
+            offset += length - 1;
+            step = -1;
+        }
+        int value = 0;
+        while (length-- > 0) {
+            value = (value << 8) | (bytes[offset] & 0xFF);
+            offset += step;
+        }
+        return value;
     }
 
 }

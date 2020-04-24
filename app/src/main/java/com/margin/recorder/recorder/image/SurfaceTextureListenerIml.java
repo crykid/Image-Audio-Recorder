@@ -11,14 +11,11 @@ import android.view.TextureView;
 public abstract class SurfaceTextureListenerIml implements TextureView.SurfaceTextureListener {
 
 
-    @Override
-    final public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
 
-    }
 
     @Override
     final public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        return true;
+        return false;
     }
 
     @Override

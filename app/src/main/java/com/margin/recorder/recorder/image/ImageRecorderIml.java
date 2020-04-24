@@ -3,12 +3,18 @@ package com.margin.recorder.recorder.image;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.ImageFormat;
+import android.graphics.Matrix;
+import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.TotalCaptureResult;
+import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -19,6 +25,7 @@ import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 
+import com.margin.recorder.recorder.FileUtil;
 import com.margin.recorder.recorder.RecorderContants;
 
 import java.io.File;
@@ -47,10 +54,10 @@ public class ImageRecorderIml implements IImageRecorder {
     private static final SparseIntArray PHOTO_ORITATION = new SparseIntArray();
 
     static {
-        PHOTO_ORITATION.append(Surface.ROTATION_0, 90);
-        PHOTO_ORITATION.append(Surface.ROTATION_90, 0);
-        PHOTO_ORITATION.append(Surface.ROTATION_180, 270);
-        PHOTO_ORITATION.append(Surface.ROTATION_270, 180);
+        PHOTO_ORITATION.append(0, 0);
+        PHOTO_ORITATION.append(90, 270);
+        PHOTO_ORITATION.append(180, 180);
+        PHOTO_ORITATION.append(270, 270);
     }
 
     //拍照策略，默认是--自动随机--的
@@ -79,7 +86,7 @@ public class ImageRecorderIml implements IImageRecorder {
     private Context mContext;
 
     //一次生命周期内(从start到finish）拍到的所有照片路径
-    private List<String> mFilePaths = new ArrayList<>();
+    final private List<String> mFilePaths = new ArrayList<>();
 
 
     private Handler mCameraHandler;
@@ -93,17 +100,19 @@ public class ImageRecorderIml implements IImageRecorder {
     //摄像头ID，前置or后置
     private String mCameraId;
 
-    //录像or拍照请求
-    private CaptureRequest.Builder mPreviewBuilder;
-
     //摄像头对话
     private CameraCaptureSession mCameraCaptureSession;
+
+    private CaptureRequest mReviewCaptureRequest;
 
 
     private ImageReader mImageReader;
     //拍照的预览Surface
     private Surface readerSurface;
+    //屏幕旋转方向，根据屏幕旋转方向旋转surfaceView，不过此处禁止屏幕旋转了，无需此参数
     private int displayRotation;
+    //摄像头旋转方向，保存照片的时候根据摄像头旋转方向对照片进行旋转
+    private int cameraOritation;
 
 
     //------------ -------------- --------------- ---------------
@@ -192,11 +201,15 @@ public class ImageRecorderIml implements IImageRecorder {
     }
 
     @Override
-    public void startPreview() {
-
-
+    public void prepare() {
+        mFilePaths.clear();
         Log.d(TAG, "=== startPreview === ");
         initCamera();
+    }
+
+    @Override
+    public void startPreview() {
+
 
         //如果UI在初始化时候没有第一时间设置上面的回调，textureView就绪时候无法得知，就需要主动打开摄像头
         if (mPreviewView.isAvailable()) {
@@ -217,6 +230,13 @@ public class ImageRecorderIml implements IImageRecorder {
         List<Size> cameraOutputSizes = RecorderCameraUtil.getInstance().getCameraOutputSizes(mCameraId, SurfaceTexture.class);
         //3.得到与屏幕匹配的尺寸；
         previewSize = cameraOutputSizes.get(0);
+        try {
+            //获取摄像头旋转方向
+            cameraOritation = mCameraManager.getCameraCharacteristics(mCameraId).get(CameraCharacteristics.SENSOR_ORIENTATION);
+            Log.d(TAG, " === 摄像头旋转角度 " + cameraOritation);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -267,18 +287,21 @@ public class ImageRecorderIml implements IImageRecorder {
     }
 
     private void takeSinglePhotoFlow() {
-        //1.生成照片名
-        final String localFileName = generateFileName();
-        //2.拍照
+
+        //1.拍照
         lockFocus();
+        //2.生成照片名
+        //photoReaderListener 中保存前生成
         //3.保存文件
-        //4.拍照完成
+        //在 photoReaderListener 回调中保存
     }
 
 
     @Override
     public List<String> getFiles() {
-        return null;
+        final List<String> l = new ArrayList<>(mFilePaths);
+        mFilePaths.clear();
+        return l;
     }
 
     private String generateFileName() {
@@ -300,11 +323,18 @@ public class ImageRecorderIml implements IImageRecorder {
 
         Log.d(TAG, " === openCamera === ");
         try {
+            displayRotation = ((Activity) mContext).getWindowManager().getDefaultDisplay().getRotation();
+            Log.d(TAG, "openCamera: displayRotation = " + displayRotation);
             //将预览尺寸应用到TextureView
             new Handler(mContext.getMainLooper()).post(() -> {
-                mPreviewView.setAspectRation(previewSize.getWidth(), previewSize.getHeight());
+                if (displayRotation == Surface.ROTATION_0 || displayRotation == Surface.ROTATION_180) {
+                    mPreviewView.setAspectRation(previewSize.getHeight(), previewSize.getWidth());
+                } else {
+                    mPreviewView.setAspectRation(previewSize.getWidth(), previewSize.getHeight());
+                }
             });
 
+            configureTransform(mPreviewView.getWidth(), mPreviewView.getHeight());
             //打开摄像头
             mCameraManager.openCamera(mCameraId, mCameraStateCallback, mCameraHandler);
 
@@ -316,22 +346,23 @@ public class ImageRecorderIml implements IImageRecorder {
 
 
     private void startRealPreview() {
-        SurfaceTexture surfaceTexture = mPreviewView.getSurfaceTexture();
+        final SurfaceTexture surfaceTexture = mPreviewView.getSurfaceTexture();
 
-        //应用预览尺寸
+        //设置缓冲大小
         surfaceTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
 
-        Surface previewSurface = new Surface(surfaceTexture);
+        final Surface previewSurface = new Surface(surfaceTexture);
 
         try {
             //创建预览请求
-            mPreviewBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            CaptureRequest.Builder previewBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             //自动对焦
-            mPreviewBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
             //预览对象
-            mPreviewBuilder.addTarget(previewSurface);
-            //创建预览请求对话
-            mCameraDevice.createCaptureSession(Arrays.asList(previewSurface), captureSessionStateCallback, mCameraHandler);
+            previewBuilder.addTarget(previewSurface);
+            mReviewCaptureRequest = previewBuilder.build();
+
+            mCameraDevice.createCaptureSession(Arrays.asList(previewSurface, readerSurface), captureSessionStateCallback, mCameraHandler);
 
 
         } catch (CameraAccessException e) {
@@ -340,38 +371,111 @@ public class ImageRecorderIml implements IImageRecorder {
         }
     }
 
-
-    private void lockFocus() {
+    /**
+     * @param viewWidth
+     * @param viewHeight
+     */
+    private void configureTransform(int viewWidth, int viewHeight) {
+        if (mPreviewView == null || previewSize == null || mContext == null) {
+            return;
+        }
+        final int rotation = ((Activity) mContext).getWindowManager().getDefaultDisplay().getRotation();
+        Matrix matrix = new Matrix();
+        RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
+        RectF bufferRect = new RectF(0, 0, previewSize.getHeight(), previewSize.getWidth());
+        float centerX = viewRect.centerX();
+        float centerY = viewRect.centerY();
+        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerX());
+            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
+            float scale = Math.max(
+                    (float) viewHeight / previewSize.getHeight(),
+                    (float) viewWidth / previewSize.getWidth());
+            matrix.postScale(scale, scale, centerX, centerY);
+            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
+        } else if (Surface.ROTATION_180 == rotation) {
+            matrix.postRotate(180, centerX, centerY);
+        }
+        mPreviewView.setTransform(matrix);
 
     }
 
 
-    private void stopPreview() {
+    private void initReaderAndSurface() {
+        mImageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), ImageFormat.JPEG, 2);
+        mImageReader.setOnImageAvailableListener(photoReaderListener, null);
+        readerSurface = mImageReader.getSurface();
+    }
 
+
+    private void lockFocus() {
+        try {
+            final CaptureRequest.Builder captureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+
+            /*
+            注意：captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, photoRotation)不一定生效！！！
+            注意：captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, photoRotation)不一定生效！！！
+            注意：captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, photoRotation)不一定生效！！！
+            ----
+            因为不同的厂商、设备底层不一定做过相应的处理，如三星，魅族部分，并没有对该方法做过处理！这是天大的坑啊
+            ----
+            图片的旋转还是需要通过读取图片二进制的Exif信息获得旋转角度，然后使用Bitmap旋转！
+             */
+            //修正旋转角度
+            int photoRotation = PHOTO_ORITATION.get(cameraOritation);
+            //因为摄像头画面可能是旋转的，所以根据摄像头角度把画面旋转
+            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, photoRotation);
+
+
+            captureBuilder.addTarget(readerSurface);
+            CaptureRequest phtotoRequest = captureBuilder.build();
+
+            //先停止实时视频预览
+            mCameraCaptureSession.stopRepeating();
+            //拍照
+            mCameraCaptureSession.capture(phtotoRequest, captureSessionCaptureCallback, mCameraHandler);
+        } catch (CameraAccessException e) {
+            Log.e(TAG, "lockFocus: ", e);
+        }
+    }
+
+    private void release() {
         if (mCameraDevice != null) {
             mCameraDevice.close();
             mCameraDevice = null;
         }
+        if (mImageReader != null) {
+            mImageReader.close();
+            mImageReader = null;
+        }
 
     }
+
+
     //------------------------------------surfaceTextureListener/callback-----------------------------------------
 
-    //TextureView 的Surface状态监听，用于TextureView就绪后开始后续任务
+    //预览-TextureView 的Surface状态监听，用于TextureView就绪后开始后续任务
     final private TextureView.SurfaceTextureListener surfaceTextureListener = new SurfaceTextureListenerIml() {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-            Log.d(TAG, " === onSurfaceTextureAvailable ===  width = " + width + " height = " + height);
+            Log.d(TAG, " -- onSurfaceTextureAvailable --");
             openCamera();
+        }
+
+        @Override
+        public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+            configureTransform(width, height);
         }
     };
 
-    //摄像头状态回调，就绪后可以创建相机会话
+
+    //预览-摄像头状态回调，就绪后可以创建相机会话
     final private CameraDevice.StateCallback mCameraStateCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(@NonNull CameraDevice camera) {
 
             Log.d(TAG, " -- CameraState : onOpened ");
-
+            initReaderAndSurface();
             mCameraDevice = camera;
 
             //初始化预览
@@ -391,17 +495,16 @@ public class ImageRecorderIml implements IImageRecorder {
     };
 
 
-    //相机会话状态回调
+    //预览-相机会话状态回调
     final private CameraCaptureSession.StateCallback captureSessionStateCallback = new CameraCaptureSession.StateCallback() {
 
         @Override
         public void onConfigured(@NonNull CameraCaptureSession session) {
-            CaptureRequest request = mPreviewBuilder.build();
             Log.d(TAG, " -- onConfigured: ");
             try {
                 mCameraCaptureSession = session;
-                // 设置成预览
-                session.setRepeatingRequest(request, null, mCameraHandler);
+                //设置循环预览（视频预览的本质就是不停的将每一帧都送到Surface预览）
+                mCameraCaptureSession.setRepeatingRequest(mReviewCaptureRequest, null, mCameraHandler);
 
                 //更新预览状态
                 mStatus = ImageRecorderStatus.READY;
@@ -416,8 +519,37 @@ public class ImageRecorderIml implements IImageRecorder {
 
         @Override
         public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-            stopPreview();
+            release();
             Log.e(TAG, " -- onConfigureFailed: ");
+        }
+    };
+
+    //拍照-捕捉画面成功回调，然后存储成照片
+    private final ImageReader.OnImageAvailableListener photoReaderListener = reader -> {
+        Log.d(TAG, " -- 画面捕捉完成 开始存储照片 --");
+        //保存照片
+        Image image = reader.acquireNextImage();
+        final String imageName = generateFileName();
+        boolean saveSuccess = FileUtil.writeImageToFile(image, imageName);
+        if (saveSuccess) {
+            mFilePaths.add(imageName);
+            Log.d(TAG, " -- 照片存储完成 --");
+
+        }
+    };
+
+    //拍照完成监听
+    private CameraCaptureSession.CaptureCallback captureSessionCaptureCallback = new CameraCaptureSession.CaptureCallback() {
+        @Override
+        public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+            Log.d(TAG, " -- onCaptureCompleted: 拍照完成，继续预览  ");
+            try {
+                //继续预览
+                mCameraCaptureSession.setRepeatingRequest(mReviewCaptureRequest, null, mCameraHandler);
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
+                Log.e(TAG, " -- onCaptureCompleted: 拍照完成，继续预览出错 ", e);
+            }
         }
     };
 
