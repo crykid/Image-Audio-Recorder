@@ -79,15 +79,19 @@ public class FileUtil {
 
 
     /**
-     * 将录音片段删除
+     * 删除废弃的文件
      *
      * @param filePaths
      */
     public static void clearFragments(String filePaths) {
 
-        File file = new File(filePaths);
-        if (file.exists()) {
-            file.delete();
+        try {
+            File file = new File(filePaths);
+            if (file.exists()) {
+                file.delete();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

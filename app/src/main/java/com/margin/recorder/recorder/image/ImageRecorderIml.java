@@ -16,6 +16,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.TotalCaptureResult;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
@@ -52,7 +53,7 @@ public class ImageRecorderIml implements IImageRecorder {
     private static final String TAG = "ImageRecorderIml";
 
     /**
-     *需要注意，这里的旋转仅针对前置摄像头，后置不旋转
+     * 需要注意，这里的旋转仅针对前置摄像头，后置不旋转
      */
     private static final SparseIntArray PHOTO_ORITATION = new SparseIntArray();
 
@@ -64,19 +65,19 @@ public class ImageRecorderIml implements IImageRecorder {
     }
 
     //拍照策略，默认是--自动随机--的
-    private Strategy mStrategy = Strategy.AUTO_RANDOM;
+    private ScheduleStrategy mScheduleStrategy = ScheduleStrategy.AUTO_RANDOM;
 
     //记录总时间
     private int mPeriod = RecorderContants.DEFAULT_SECOND;
 
     //当拍照策略为自动（AUTO_AVERATE,AUTO_RANDOM）时有效
-    private int time = -1;
+    private int mCaptureTime = RecorderContants.DEFAULT_CAPTURE_TIME;
 
     //时间格式
-    private DateFormat mFormat;
+    private DateFormat mFormat = new SimpleDateFormat("yyyyMMddHHmmss");
 
     //拍照后文件存储路径
-    private String mImagesDirectory;
+    private String mImagesDirectory = RecorderContants.DIRECTORY_CAPTURE;
 
     //记录器目前状态
     private ImageRecorderStatus mStatus = ImageRecorderStatus.STOP;
@@ -106,7 +107,7 @@ public class ImageRecorderIml implements IImageRecorder {
     //摄像头对话
     private CameraCaptureSession mCameraCaptureSession;
 
-    private CaptureRequest mReviewCaptureRequest;
+    private CaptureRequest mPreviewCaptureRequest;
 
 
     private ImageReader mImageReader;
@@ -144,10 +145,9 @@ public class ImageRecorderIml implements IImageRecorder {
     //------------ -------------- --------------- ---------------
 
     @Override
-    public IImageRecorder target(@NonNull Activity context, @NonNull TextureView previewView) {
+    public IImageRecorder target(@NonNull TextureView previewView) {
 
         this.mPreviewView = (AutoFitTextureView) previewView;
-        this.mContext = context;
 
         return this;
     }
@@ -160,35 +160,62 @@ public class ImageRecorderIml implements IImageRecorder {
      */
     @Override
     public IImageRecorder hand() {
-        mStrategy = Strategy.HAND;
+        mScheduleStrategy = ScheduleStrategy.HAND;
         this.mPeriod = RecorderContants.MAX_SECOND;
+        this.mCaptureTime = 1;
         return this;
     }
 
+    /**
+     * 自动随机拍照
+     *
+     * @param captureTime
+     * @param period
+     * @return
+     */
     @Override
-    public IImageRecorder autoRandom(int time, int period) {
+    public IImageRecorder autoRandom(int captureTime, int period) {
+
+        if (captureTime <= 1) {
+            throw new IllegalArgumentException("The capture time can only be greater than 0 !");
+        }
+        this.mCaptureTime = captureTime;
 
         if (mPeriod <= 0) {
             throw new IllegalArgumentException("The Recording period or Recording time can only be greater than 0 !");
-        } else {
-            this.mPeriod = period;
         }
-        this.mStrategy = Strategy.AUTO_RANDOM;
+
+        this.mScheduleStrategy = ScheduleStrategy.AUTO_RANDOM;
         return this;
     }
 
+    /**
+     * 自动按照一定的时间间隔拍照
+     *
+     * @param captureTime
+     * @param period
+     * @return
+     */
     @Override
-    public IImageRecorder autoAverage(int time, int period) {
-        if (mPeriod <= 0 || time <= 0) {
+    public IImageRecorder autoAverage(int captureTime, int period) {
+        if (mPeriod <= 0 || captureTime <= 0) {
             throw new IllegalArgumentException("The Recording period or Recording time can only be greater than 0 !");
         } else {
             this.mPeriod = period;
         }
-        this.mStrategy = Strategy.AUTO_AVERAGE;
+        this.mCaptureTime = captureTime;
+        this.mScheduleStrategy = ScheduleStrategy.AUTO_AVERAGE;
         return this;
     }
 
 
+    /**
+     * 照片 存储路径
+     * 可选方法
+     *
+     * @param directory
+     * @return
+     */
     @Override
     public ImageRecorderIml directory(@NonNull String directory) {
 
@@ -204,10 +231,16 @@ public class ImageRecorderIml implements IImageRecorder {
     }
 
     @Override
-    public void prepare() {
+    public void prepare(@NonNull Activity context) {
         mFilePaths.clear();
+        this.mContext = context;
         Log.d(TAG, "=== startPreview === ");
         initCamera();
+        mStatus = ImageRecorderStatus.READY;
+        if (mRecorderStatusChangeListener != null) {
+            mRecorderStatusChangeListener.onChange(mStatus);
+        }
+
     }
 
     @Override
@@ -245,52 +278,94 @@ public class ImageRecorderIml implements IImageRecorder {
     @Override
     public void takePhoto() {
 
-        this.mStatus = ImageRecorderStatus.START;
-        if (mRecorderStatusChangeListener != null) {
-            mRecorderStatusChangeListener.onChange(mStatus);
+
+        //不区分拍摄类型前提下，只有相机状态在 预览状态或拍摄（单张）状态才能 拍照
+        if (mStatus != ImageRecorderStatus.PREVIEW && mStatus != ImageRecorderStatus.CAPTURE) {
+            Log.e(TAG, "takePhoto: Make sure that Camera has been initialized and started preview !");
+            return;
         }
-        if (mFormat == null) {
-            mFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-        }
-        switch (mStrategy) {
+
+
+        switch (mScheduleStrategy) {
             case HAND:
                 takeSinglePhotoFlow();
                 break;
             case AUTO_AVERAGE:
-                averageTakePhoto();
+                multiCapture(ScheduleStrategy.AUTO_AVERAGE);
+
                 break;
             case AUTO_RANDOM:
-                randomTakePhoto();
+                multiCapture(ScheduleStrategy.AUTO_RANDOM);
+
                 break;
         }
     }
 
     @Override
-    public void finish() {
+    public void cancel() {
+        if (mFilePaths.size() > 0) {
+            for (String path : mFilePaths) {
+                FileUtil.clearFragments(path);
+            }
+        }
+        release();
+    }
+
+    @Override
+    public void release() {
         mStatus = ImageRecorderStatus.STOP;
         if (mRecorderStatusChangeListener != null) {
             mRecorderStatusChangeListener.onChange(mStatus);
         }
         closeCamera();
+
+        RecorderCameraUtil.getInstance().release();
         mContext = null;
+        mFilePaths.clear();
     }
 
-    private void averageTakePhoto() {
 
+    /**
+     * 多张拍摄，需要注意，已经开始拍摄一组照片的时候不能继续次操作
+     *
+     * @param scheduleStrategy
+     */
+    private void multiCapture(ScheduleStrategy scheduleStrategy) {
+        //能执行到这里，当前记录器状态是第一次记录/拍照，或已经开始了；
 
-        //1.生成时间规则
-        //2.按照规则派发
-        takeSinglePhotoFlow();
+        // 如果已经开始拍照，则停止,不能重复操作
+        if (mStatus == ImageRecorderStatus.CAPTURE) return;
+
+        //由预览状态进入拍照状态时，通知记录器的状态
+        this.mStatus = ImageRecorderStatus.CAPTURE;
+        if (mRecorderStatusChangeListener != null) {
+            mRecorderStatusChangeListener.onChange(mStatus);
+        }
+
+        TimeSchedule
+                .create()
+                .prepare(scheduleStrategy, mPeriod, mCaptureTime)
+                .execute(time -> {
+                    if (time >= mCaptureTime) {
+                        mRecorderStatusChangeListener.onChange(ImageRecorderStatus.STOP);
+                    } else {
+                        lockFocus();
+                    }
+                });
     }
 
-    private void randomTakePhoto() {
-        //1.生成时间规则
-        //2.按照规则派发
-        takeSinglePhotoFlow();
-    }
 
+    /**
+     * 单次拍照，一次只拍摄一张；
+     * <p>
+     * 只要是在拍照状态，就可以继续拍照在takePhoteo()方法已经做了状态的更新
+     */
     private void takeSinglePhotoFlow() {
 
+        this.mStatus = ImageRecorderStatus.CAPTURE;
+        if (mRecorderStatusChangeListener != null) {
+            mRecorderStatusChangeListener.onChange(mStatus);
+        }
         //1.拍照
         lockFocus();
         //2.生成照片名
@@ -300,6 +375,11 @@ public class ImageRecorderIml implements IImageRecorder {
     }
 
 
+    /**
+     * 获取此次拍摄的所有照片路径
+     *
+     * @return List<String> ,所有照片的路径
+     */
     @Override
     public List<String> getFiles() {
         final List<String> l = new ArrayList<>(mFilePaths);
@@ -309,12 +389,28 @@ public class ImageRecorderIml implements IImageRecorder {
 
     private String generateFileName() {
         final String name = mFormat.format(new Date());
-        return mImagesDirectory + File.separator + name + ".jpg";
+        final String path = FileUtil.getFilePath(mContext, Environment.DIRECTORY_PICTURES, mImagesDirectory);
+        return path + File.separator + name + ".jpg";
     }
 
 
     private void closeCamera() {
-        mCameraDevice.close();
+        //关闭相机
+        if (mCameraDevice != null) {
+            mCameraDevice.close();
+            mCameraDevice = null;
+        }
+        //关闭相机会话
+        if (mCameraCaptureSession != null) {
+            mCameraCaptureSession.close();
+            mCameraCaptureSession = null;
+        }
+        //关闭照片阅读者
+        if (mImageReader != null) {
+            mImageReader.close();
+            mImageReader = null;
+        }
+
     }
 
 
@@ -363,7 +459,7 @@ public class ImageRecorderIml implements IImageRecorder {
             previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
             //预览对象
             previewBuilder.addTarget(previewSurface);
-            mReviewCaptureRequest = previewBuilder.build();
+            mPreviewCaptureRequest = previewBuilder.build();
 
             mCameraDevice.createCaptureSession(Arrays.asList(previewSurface, readerSurface), captureSessionStateCallback, mCameraHandler);
 
@@ -442,18 +538,6 @@ public class ImageRecorderIml implements IImageRecorder {
         }
     }
 
-    private void release() {
-        if (mCameraDevice != null) {
-            mCameraDevice.close();
-            mCameraDevice = null;
-        }
-        if (mImageReader != null) {
-            mImageReader.close();
-            mImageReader = null;
-        }
-
-    }
-
 
     //------------------------------------surfaceTextureListener/callback-----------------------------------------
 
@@ -507,10 +591,10 @@ public class ImageRecorderIml implements IImageRecorder {
             try {
                 mCameraCaptureSession = session;
                 //设置循环预览（视频预览的本质就是不停的将每一帧都送到Surface预览）
-                mCameraCaptureSession.setRepeatingRequest(mReviewCaptureRequest, null, mCameraHandler);
+                mCameraCaptureSession.setRepeatingRequest(mPreviewCaptureRequest, null, mCameraHandler);
 
                 //更新预览状态
-                mStatus = ImageRecorderStatus.READY;
+                mStatus = ImageRecorderStatus.PREVIEW;
                 if (mRecorderStatusChangeListener != null) {
                     mRecorderStatusChangeListener.onChange(mStatus);
                 }
@@ -548,7 +632,7 @@ public class ImageRecorderIml implements IImageRecorder {
             Log.d(TAG, " -- onCaptureCompleted: 拍照完成，继续预览  ");
             try {
                 //继续预览
-                mCameraCaptureSession.setRepeatingRequest(mReviewCaptureRequest, null, mCameraHandler);
+                mCameraCaptureSession.setRepeatingRequest(mPreviewCaptureRequest, null, mCameraHandler);
             } catch (CameraAccessException e) {
                 e.printStackTrace();
                 Log.e(TAG, " -- onCaptureCompleted: 拍照完成，继续预览出错 ", e);

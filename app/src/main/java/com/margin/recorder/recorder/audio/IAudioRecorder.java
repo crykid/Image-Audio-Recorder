@@ -1,8 +1,7 @@
 package com.margin.recorder.recorder.audio;
 
+import android.content.Context;
 import android.support.annotation.NonNull;
-
-import java.util.List;
 
 /**
  * Created by : mr.lu
@@ -11,35 +10,37 @@ import java.util.List;
  */
 public interface IAudioRecorder {
 
-    IAudioRecorder init();
 
     IAudioRecorder statusChangeListener(@NonNull IOnAudioRecorderStatusChangeListener listener);
 
-    IAudioRecorder fileName(@NonNull String name);
+    IAudioRecorder directory(@NonNull String directory);
 
+    @Deprecated
     IAudioRecorder period(int period);
+
+    void prepare(Context context);
 
     void start();
 
-
+    @Deprecated
     void pause();
 
+    @Deprecated
     void resume();
 
     void stop();
 
     void cancel();
 
-    void play(String filePath);
 
-    void delete(String desFilePath);
+    String getAudio();
 
-    List<String> getAudios(@NonNull String dir);
 
     boolean isStart();
 
     boolean isStop();
 
+    @Deprecated
     boolean isPause();
 
     String getStatus();

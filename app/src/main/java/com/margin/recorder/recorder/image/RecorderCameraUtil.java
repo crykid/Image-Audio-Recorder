@@ -3,15 +3,11 @@ package com.margin.recorder.recorder.image;
 import android.content.Context;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.util.Log;
 import android.util.Size;
 
-import com.margin.recorder.recorder.IRecorderManager;
-
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -22,7 +18,7 @@ import java.util.List;
  * Created at : 2020-04-22 at 16:12
  * Description:
  */
-public class RecorderCameraUtil implements IRecorderManager {
+public class RecorderCameraUtil {
 
     private static final String TAG = "RecorderCameraUtil";
 
@@ -49,10 +45,20 @@ public class RecorderCameraUtil implements IRecorderManager {
         return cameraManager;
     }
 
+    /**
+     * 获取前置摄像头ID
+     *
+     * @return
+     */
     public String getFrontCameraId() {
         return getCameraId(true);
     }
 
+    /**
+     * 获取后置摄像头ID
+     *
+     * @return
+     */
     public String getBackCameraId() {
         return getCameraId(false);
     }
@@ -116,50 +122,38 @@ public class RecorderCameraUtil implements IRecorderManager {
     }
 
 
-    /**
-     * 释放相机资源
-     *
-     * @param cameraDevice
-     */
-    public void releaseCamera(CameraDevice cameraDevice) {
-        assert cameraDevice != null;
-        cameraDevice.close();
-        cameraDevice = null;
-    }
+//    public static Size getOptimalSize(Size[] sizes, int width, int height) {
+//        //1080*1692
+//        ArrayList<Size> sizeList = new ArrayList<>();
+//        for (Size option : sizes) {
+//            if (width > height) {
+//                if (option.getWidth() > width && option.getHeight() > height) {
+//                    sizeList.add(option);
+//                } else {
+//                    if (option.getWidth() > height && option.getHeight() > width) {
+//                        sizeList.add(option);
+//                    }
+//                }
+//            }
+//        }
+//
+//        if (sizeList.size() > 0) {
+//            return (Size) Collections.min(sizeList, new Comparator<Size>() {
+//                @Override
+//                public int compare(Size o1, Size o2) {
+//
+//                    return Long.signum(o1.getWidth() * o1.getHeight() - o2.getWidth() * o2.getHeight());
+//                }
+//            });
+//        }
+//
+//        return sizes[0];
+//
+//    }
 
-
-    public static Size getOptimalSize(Size[] sizes, int width, int height) {
-        //1080*1692
-        ArrayList<Size> sizeList = new ArrayList<>();
-        for (Size option : sizes) {
-            if (width > height) {
-                if (option.getWidth() > width && option.getHeight() > height) {
-                    sizeList.add(option);
-                } else {
-                    if (option.getWidth() > height && option.getHeight() > width) {
-                        sizeList.add(option);
-                    }
-                }
-            }
-        }
-
-        if (sizeList.size() > 0) {
-            return (Size) Collections.min(sizeList, new Comparator<Size>() {
-                @Override
-                public int compare(Size o1, Size o2) {
-
-                    return Long.signum(o1.getWidth() * o1.getHeight() - o2.getWidth() * o2.getHeight());
-                }
-            });
-        }
-
-        return sizes[0];
-
-    }
-
-    @Override
     public void release() {
         mContext = null;
+        cameraManager = null;
     }
 
 }

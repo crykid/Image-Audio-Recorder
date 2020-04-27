@@ -13,8 +13,9 @@ import java.util.List;
  */
 public interface IImageRecorder {
 
-    IImageRecorder target(@NonNull Activity activity, @NonNull TextureView previewView);
+    IImageRecorder target( @NonNull TextureView previewView);
 
+    @Deprecated
     IImageRecorder hand();
 
     IImageRecorder autoRandom(int time, int period);
@@ -25,13 +26,16 @@ public interface IImageRecorder {
 
     IImageRecorder recorderStatusChangeListener(@NonNull IOnImageRecorderStatusChangeListener listener);
 
-    void prepare();
+    void prepare(@NonNull Activity activity);
 
     void startPreview();
 
+
     void takePhoto();
 
-    void finish();
+    void cancel();
+
+    void release();
 
     List<String> getFiles();
 

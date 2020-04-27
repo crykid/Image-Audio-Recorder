@@ -5,7 +5,7 @@ package com.margin.recorder.recorder.image;
  * Created at : 2020-04-22 at 10:24
  * Description: 拍照策略
  */
-public enum Strategy {
+public enum ScheduleStrategy {
 
     /**
      * 随机

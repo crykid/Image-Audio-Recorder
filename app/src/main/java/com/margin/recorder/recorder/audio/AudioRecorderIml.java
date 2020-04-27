@@ -1,7 +1,9 @@
 package com.margin.recorder.recorder.audio;
 
+import android.content.Context;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.os.Environment;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -10,6 +12,9 @@ import com.margin.recorder.recorder.RecorderContants;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -23,12 +28,14 @@ public class AudioRecorderIml implements IAudioRecorder {
 
     private static final String TAG = "AudioRecorderIml";
 
+    private Context mContext;
     private IOnAudioRecorderStatusChangeListener mListener;
     //默认30s
     private int period = RecorderContants.DEFAULT_SECOND;
     private MediaRecorder mMediaRecorder;
-    private String fileName;
+    private String fileName, directory = RecorderContants.DIRECTORY_AUDIO;
     private AudioRecorderStatus status = AudioRecorderStatus.STATUS_NO_READY;
+    private DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
 
     //------------------------------------------------------------------------
     private final static class Holder {
@@ -45,37 +52,57 @@ public class AudioRecorderIml implements IAudioRecorder {
 
 
     @Override
-    public AudioRecorderIml init() {
-        if (mMediaRecorder == null)
-            mMediaRecorder = new MediaRecorder();
-        this.status = AudioRecorderStatus.STATUS_READY;
-        return this;
-    }
-
-    @Override
     public IAudioRecorder statusChangeListener(IOnAudioRecorderStatusChangeListener listener) {
         this.mListener = listener;
         return this;
     }
 
 
+    /**
+     * 可选的方法，默认"audio"
+     *
+     * @param directory 存储录音未见的最终文件夹名(不是全路径）
+     * @return
+     */
     @Override
-    public AudioRecorderIml fileName(String fileName) {
-        if (TextUtils.isEmpty(fileName)) {
-            throw new IllegalArgumentException("fileName can not be empty");
+    public AudioRecorderIml directory(String directory) {
+        if (TextUtils.isEmpty(directory)) {
+            throw new IllegalArgumentException("The directory can not be empty");
         }
-        this.fileName = fileName;
+        this.directory = directory;
         return this;
     }
 
+    /**
+     * 设置录音长度，可选的方法。录音的开始、停止跟随ImageRecorder变化
+     *
+     * @param period
+     * @return
+     */
     @Override
     public IAudioRecorder period(int period) {
         if (period > 0) {
             this.period = period;
         } else {
-            this.period = 30;
+            this.period = RecorderContants.DEFAULT_SECOND;
         }
         return this;
+    }
+
+
+    /**
+     * 准备就绪
+     *
+     * @param context
+     */
+    @Override
+    public void prepare(Context context) {
+        if (mMediaRecorder == null)
+            mMediaRecorder = new MediaRecorder();
+        this.status = AudioRecorderStatus.STATUS_READY;
+        if (context != null) {
+            this.mContext = context;
+        }
     }
 
     @Override
@@ -87,6 +114,8 @@ public class AudioRecorderIml implements IAudioRecorder {
         if (status == AudioRecorderStatus.STATUS_NO_READY || mMediaRecorder == null) {
             throw new IllegalArgumentException("The recorder has not been initialized ！");
         }
+        fileName = generateFileName();
+
         if (TextUtils.isEmpty(fileName)) {
             throw new IllegalArgumentException("The audio name can not be null !");
         }
@@ -103,7 +132,6 @@ public class AudioRecorderIml implements IAudioRecorder {
         // 开始录音
         /* ①Initial：实例化MediaRecorder对象 */
 
-//        mMediaRecorder.setMaxDuration(1000 * period);
         try {
             /* ②setAudioSource/setVedioSource */
             mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);// 设置麦克风
@@ -131,6 +159,7 @@ public class AudioRecorderIml implements IAudioRecorder {
     }
 
 
+    @Deprecated
     @Override
     public void pause() {
         Log.d(TAG, "=== pause ===");
@@ -148,6 +177,7 @@ public class AudioRecorderIml implements IAudioRecorder {
         }
     }
 
+    @Deprecated
     @Override
     public void resume() {
         if (status == AudioRecorderStatus.STATUS_PAUSE) {
@@ -161,13 +191,16 @@ public class AudioRecorderIml implements IAudioRecorder {
         }
     }
 
+    /**
+     * 停止录音
+     */
     @Override
     public void stop() {
 
         Log.d(TAG, "=== stop === ");
         if (status == AudioRecorderStatus.STATUS_NO_READY || status == AudioRecorderStatus.STATUS_READY) {
 
-            Log.e(TAG, "stop: The recording hasn't started");
+            Log.d(TAG, "stop: The recording hasn't started");
             return;
         }
         status = AudioRecorderStatus.STATUS_STOP;
@@ -175,28 +208,27 @@ public class AudioRecorderIml implements IAudioRecorder {
             mListener.onChange(status);
         }
         try {
+
             mMediaRecorder.stop();
             mMediaRecorder.release();
             mMediaRecorder = null;
-            fileName = "";
         } catch (RuntimeException e) {
             Log.e(TAG, "stop: ", e);
-            mMediaRecorder.reset();
-            mMediaRecorder.release();
-            mMediaRecorder = null;
 
-            FileUtil.clearFragments(fileName);
-            fileName = "";
         }
     }
 
 
+    /**
+     * 当主动退出（如按返回键，或app进入后台）时候调用。
+     * 此时会清除未完成的文件
+     */
     @Override
     public void cancel() {
         //此时不需要回调，因为取消是用户主动行为
 
-        //1.退出录音
         final String p = fileName;
+        //1.退出录音
         stop();
         //2.清除录音文件
         FileUtil.clearFragments(p);
@@ -204,29 +236,8 @@ public class AudioRecorderIml implements IAudioRecorder {
     }
 
     @Override
-    public void play(String filePath) {
-        // TODO: 2020-04-20
-    }
-
-    @Override
-    public void delete(String desFilePath) {
-        // TODO: 2020-04-20
-    }
-
-    @Override
-    public List<String> getAudios(String dir) {
-        // TODO: 2020-04-20
-        return null;
-    }
-
-
-    /**
-     * 获取录制的内容
-     *
-     * @return
-     */
-    public File getAudio() {
-        return null;
+    public String getAudio() {
+        return fileName;
     }
 
 
@@ -244,6 +255,14 @@ public class AudioRecorderIml implements IAudioRecorder {
 
     public String getStatus() {
         return status.name();
+    }
+
+
+    private String generateFileName() {
+        final String name = dateFormat.format(new Date());
+        final String realDirectory = FileUtil.getFilePath(mContext, Environment.DIRECTORY_MUSIC, directory);
+        fileName = realDirectory + File.separator + name + ".wav";
+        return fileName;
     }
 
 }
