@@ -84,7 +84,7 @@ public class FileUtil {
      * @param filePaths
      */
     public static void clearFragments(String filePaths) {
-
+         if (TextUtils.isEmpty(filePaths)) return;
         try {
             File file = new File(filePaths);
             if (file.exists()) {

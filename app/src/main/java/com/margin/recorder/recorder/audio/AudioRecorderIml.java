@@ -208,10 +208,11 @@ public class AudioRecorderIml implements IAudioRecorder {
             mListener.onChange(status);
         }
         try {
-
-            mMediaRecorder.stop();
-            mMediaRecorder.release();
-            mMediaRecorder = null;
+            if (mMediaRecorder != null) {
+                mMediaRecorder.stop();
+                mMediaRecorder.release();
+                mMediaRecorder = null;
+            }
         } catch (RuntimeException e) {
             Log.e(TAG, "stop: ", e);
 

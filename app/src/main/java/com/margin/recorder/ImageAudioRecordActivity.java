@@ -4,12 +4,10 @@ package com.margin.recorder;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.widget.Button;
 
-import com.margin.recorder.recorder.FileUtil;
 import com.margin.recorder.recorder.RecorderContants;
 import com.margin.recorder.recorder.audio.AudioRecorderIml;
 import com.margin.recorder.recorder.audio.IAudioRecorder;
@@ -20,7 +18,6 @@ import com.margin.recorder.recorder.image.ImageRecorderStatus;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Created by : mr.lu
@@ -40,6 +37,13 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
     private AutoFitTextureView previewView;
 
 
+    /**
+     * 启动该Activity的方法
+     *
+     * @param context
+     * @param recordTime  记录的时长
+     * @param captureTime 拍照次数
+     */
     public static void start(Context context, int recordTime, int captureTime) {
 
         context.startActivity(
@@ -75,7 +79,8 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         ImageRecorderIml
                 .getInstance()
                 .target(previewView)
-                .directory("capture")
+                .directory(RecorderContants.DIRECTORY_CAPTURE)
+//                .directory("capture")
                 .autoAverage(captureTime, recordTime)
                 .recorderStatusChangeListener(this)
                 .prepare(this);
@@ -86,14 +91,15 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
                 .statusChangeListener(status -> {
                     Log.d(TAG, "onCreate: AudioRecorder status : " + status);
                 })
-                .period(RecorderContants.DEFAULT_SECOND)
-                .directory("audio")
+//                .period(RecorderContants.DEFAULT_SECOND)
+                .period(recordTime)
+                .directory(RecorderContants.DIRECTORY_AUDIO)
                 .prepare(this);
 
 
         btnCancel.setOnClickListener(v -> {
             ImageRecorderIml.getInstance().cancel();
-            mAudioRecorder.cancel();
+            AudioRecorderIml.getInstance().cancel();
 
 
         });
@@ -126,6 +132,11 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
     }
 
 
+    /**
+     * 视频预览状态
+     *
+     * @param status
+     */
     @Override
     public void onChange(ImageRecorderStatus status) {
         this.status = status;
@@ -141,11 +152,19 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         if (status == ImageRecorderStatus.STOP) {
             AudioRecorderIml.getInstance().stop();
 
+
+            //返回结果！！
+            //录音文件
             String audioFilePath = AudioRecorderIml.getInstance().getAudio();
+            //拍摄的所有照片
             List<String> imagePaths = ImageRecorderIml.getInstance().getFiles();
-            ArrayList<String> strings = new ArrayList<>(imagePaths);
+            ArrayList<String> realPahts = new ArrayList<>(imagePaths);
+
+
             Intent data = new Intent();
-            data.putExtra("intent_image_path", strings);
+
+            //记得拿到文件路径首先判断文件是否存在
+            data.putExtra("intent_image_path", realPahts);
             data.putExtra("intent_audio_path", audioFilePath);
             setResult(RESULT_OK, data);
             finish();

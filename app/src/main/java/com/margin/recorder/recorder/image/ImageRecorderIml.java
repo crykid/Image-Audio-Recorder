@@ -181,9 +181,10 @@ public class ImageRecorderIml implements IImageRecorder {
         }
         this.mCaptureTime = captureTime;
 
-        if (mPeriod <= 0) {
+        if (period <= 0) {
             throw new IllegalArgumentException("The Recording period or Recording time can only be greater than 0 !");
         }
+        this.mPeriod = period;
 
         this.mScheduleStrategy = ScheduleStrategy.AUTO_RANDOM;
         return this;
@@ -361,17 +362,16 @@ public class ImageRecorderIml implements IImageRecorder {
      * 只要是在拍照状态，就可以继续拍照在takePhoteo()方法已经做了状态的更新
      */
     private void takeSinglePhotoFlow() {
-
-        this.mStatus = ImageRecorderStatus.CAPTURE;
-        if (mRecorderStatusChangeListener != null) {
-            mRecorderStatusChangeListener.onChange(mStatus);
+        //只通知一次
+        if (mStatus != ImageRecorderStatus.CAPTURE) {
+            this.mStatus = ImageRecorderStatus.CAPTURE;
+            if (mRecorderStatusChangeListener != null) {
+                mRecorderStatusChangeListener.onChange(mStatus);
+            }
         }
-        //1.拍照
+
         lockFocus();
-        //2.生成照片名
-        //photoReaderListener 中保存前生成
-        //3.保存文件
-        //在 photoReaderListener 回调中保存
+
     }
 
 

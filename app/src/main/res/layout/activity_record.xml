@@ -6,6 +6,7 @@
     android:layout_height="match_parent"
     tools:context=".ImageAudioRecordActivity">
 
+
     <com.margin.recorder.recorder.image.AutoFitTextureView
         android:id="@+id/texturev_record_content"
         android:layout_width="wrap_content"
@@ -14,6 +15,31 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <android.support.constraint.ConstraintLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:background="@drawable/bg_text"
+        android:padding="10dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/tv_recorder_content"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="请匀速读出一下内容：\n从前有座山,山上有座庙。\n庙里有个老和尚给小和尚讲故事"
+            android:textColor="#ff0000"
+            android:textSize="15sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </android.support.constraint.ConstraintLayout>
 
     <LinearLayout
         android:id="@+id/ll_record_btn"
@@ -28,8 +54,9 @@
             android:id="@+id/btn_record_cancel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="#f6f6f6"
+            android:background="@drawable/bg_btn_left"
             android:text="@android:string/cancel"
+            android:textColor="#ffffff"
             app:layout_constraintBottom_toBottomOf="@+id/btn_record_start"
             app:layout_constraintStart_toStartOf="parent" />
 
@@ -39,9 +66,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="1px"
-            android:background="#f6f6f6"
+            android:background="#4CAF50"
             android:text="start"
             android:textColor="#2196F3"
+            android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toEndOf="@+id/btn_record_cancel" />
 
@@ -51,9 +79,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="1px"
-            android:background="#f6f6f6"
+            android:background="#FF4CAF50"
             android:text="lock"
-            android:textColor="#2196F3"
+            android:textColor="#ffffff"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toEndOf="@+id/btn_record_cancel" />
 
@@ -63,9 +91,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="1px"
-            android:background="#f6f6f6"
+            android:background="@drawable/bg_btn_right"
             android:text="stop"
-            android:textColor="#FF5722"
+            android:textColor="#ffffff"
             app:layout_constraintBottom_toBottomOf="@+id/btn_record_start"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.013"
