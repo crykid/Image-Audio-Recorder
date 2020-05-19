@@ -2,6 +2,9 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 29
+//    viewBinding {
+//        enabled = true
+//    }
     defaultConfig {
         applicationId "com.margin.recorder"
         minSdkVersion 21

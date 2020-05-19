@@ -7,10 +7,12 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.widget.Button;
+import android.widget.Toast;
 
 import com.margin.recorder.recorder.RecorderContants;
 import com.margin.recorder.recorder.audio.AudioRecorderIml;
 import com.margin.recorder.recorder.audio.IAudioRecorder;
+import com.margin.recorder.recorder.image.AudioRecorder2Iml;
 import com.margin.recorder.recorder.image.AutoFitTextureView;
 import com.margin.recorder.recorder.image.IOnImageRecorderStatusChangeListener;
 import com.margin.recorder.recorder.image.ImageRecorderIml;
@@ -28,12 +30,13 @@ import java.util.List;
  * | 注：该模块不负责权限的检查！|
  * | 注：该模块不负责权限的检查！|
  * * --------------------- *
+ * <p>
+ * 由相机控制时间，录音不负责控制时间。录音的工作状态由相机状态决定
  */
 public class ImageAudioRecordActivity extends AppCompatActivity implements IOnImageRecorderStatusChangeListener {
     private static final String TAG = "RecordActivity";
     private Button btnStart, btnStop, btnCancel, btnLock;
     private IAudioRecorder mAudioRecorder;
-    //    RecorderTextureView previewView;
     private AutoFitTextureView previewView;
 
 
@@ -75,6 +78,9 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         // TODO: 2020-04-22 权限检查
 
 
+//        mAudioRecorder = AudioRecorderIml.getInstance();
+        mAudioRecorder = AudioRecorder2Iml.getInstance();
+
         //--1.初始化相机
         ImageRecorderIml
                 .getInstance()
@@ -86,8 +92,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
                 .prepare(this);
 
         //--初始化录音
-        AudioRecorderIml
-                .getInstance()
+        mAudioRecorder
                 .statusChangeListener(status -> {
                     Log.d(TAG, "onCreate: AudioRecorder status : " + status);
                 })
@@ -99,7 +104,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
 
         btnCancel.setOnClickListener(v -> {
             ImageRecorderIml.getInstance().cancel();
-            AudioRecorderIml.getInstance().cancel();
+            mAudioRecorder.cancel();
 
 
         });
@@ -118,7 +123,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
 
         });
         btnStop.setOnClickListener(v -> {
-            AudioRecorderIml.getInstance().stop();
+            mAudioRecorder.stop();
         });
     }
 
@@ -145,30 +150,39 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         //在拍照状态时候，开始录音
         if (status == ImageRecorderStatus.CAPTURE) {
             //--开始录音
-            AudioRecorderIml
-                    .getInstance()
+            mAudioRecorder
                     .start();
         }
         if (status == ImageRecorderStatus.STOP) {
-            AudioRecorderIml.getInstance().stop();
+            mAudioRecorder.stop();
 
 
-            //返回结果！！
-            //录音文件
-            String audioFilePath = AudioRecorderIml.getInstance().getAudio();
-            //拍摄的所有照片
-            List<String> imagePaths = ImageRecorderIml.getInstance().getFiles();
-            ArrayList<String> realPahts = new ArrayList<>(imagePaths);
+            finishAndReturnData();
 
-
-            Intent data = new Intent();
-
-            //记得拿到文件路径首先判断文件是否存在
-            data.putExtra("intent_image_path", realPahts);
-            data.putExtra("intent_audio_path", audioFilePath);
-            setResult(RESULT_OK, data);
-            finish();
         }
+    }
+
+    private void finishAndReturnData() {
+
+
+        //返回结果！！
+        //录音文件
+        String audioFilePath = mAudioRecorder.getAudio();
+        //拍摄的所有照片
+        List<String> imagePaths = ImageRecorderIml.getInstance().getFiles();
+        ArrayList<String> realPahts = new ArrayList<>(imagePaths);
+
+
+        Intent data = new Intent();
+
+        //记得拿到文件路径首先判断文件是否存在
+        data.putExtra("intent_image_path", realPahts);
+        data.putExtra("intent_audio_path", audioFilePath);
+        setResult(RESULT_OK, data);
+        if (BuildConfig.DEBUG) {
+            Toast.makeText(this, "完成自动返回客户app", Toast.LENGTH_SHORT).show();
+        }
+        finish();
     }
 
     @Override
@@ -177,7 +191,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         Log.d(TAG, "onPause: ");
         //停止一切功能
         ImageRecorderIml.getInstance().cancel();
-//        AudioRecorderIml.getInstance().cancel();
+        mAudioRecorder.cancel();
     }
 
     @Override
@@ -185,7 +199,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         super.onBackPressed();
         //停止一切功能
         ImageRecorderIml.getInstance().cancel();
-        AudioRecorderIml.getInstance().cancel();
+        mAudioRecorder.cancel();
     }
 
 
