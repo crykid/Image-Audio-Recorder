@@ -5,8 +5,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.margin.recorder.recorder.RecorderContants;
@@ -38,9 +40,10 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
     public final static String INTENT_AUDIO_PATH = "intent_audio_path";
 
 
-    private Button btnStart, btnStop, btnCancel, btnLock;
+    private Button btnStop, btnCancel, btnLock;
     private IAudioRecorder mAudioRecorder;
     private AutoFitTextureView previewView;
+    private TextView tvReadContent;
 
 
     /**
@@ -54,13 +57,14 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
      * @param recordTime  记录的时长
      * @param captureTime 拍照次数
      */
-    public static void start(Context context, int recordTime, int captureTime) {
+    public static void start(Context context, int recordTime, int captureTime, String readContent) {
 
         context.startActivity(
                 new Intent()
                         .setClass(context, ImageAudioRecordActivity.class)
                         .putExtra("intent_record_time", recordTime)
-                        .putExtra("intent_capture_time", captureTime));
+                        .putExtra("intent_capture_time", captureTime)
+                        .putExtra("intent_read_content", readContent));
     }
 
 
@@ -70,23 +74,24 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         setContentView(R.layout.activity_record);
 
         previewView = findViewById(R.id.texturev_record_content);
-        btnStart = findViewById(R.id.btn_record_start);
         btnLock = findViewById(R.id.btn_record_lock);
         btnStop = findViewById(R.id.btn_record_stop);
         btnCancel = findViewById(R.id.btn_record_cancel);
+        tvReadContent = findViewById(R.id.tv_recorder_content);
 
 
         Intent data = getIntent();
 
         final int recordTime = data.getIntExtra("intent_record_time", RecorderContants.DEFAULT_SECOND);
         final int captureTime = data.getIntExtra("intent_capture_time", RecorderContants.DEFAULT_CAPTURE_TIME);
-//        final String directory = data.getStringExtra("intent_save_directory");
+        final String readContent = data.getStringExtra("intent_read_content");
 
+        //阅读的文本
+        if (!TextUtils.isEmpty(readContent)) {
+            tvReadContent.setText(readContent);
+        }
         // TODO: 2020-04-22 权限检查
 
-
-//        mAudioRecorder = AudioRecorderIml.getInstance();
-        mAudioRecorder = AudioRecorder2Iml.getInstance();
 
         //--1.初始化相机
         ImageRecorderIml
@@ -98,7 +103,10 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
                 .recorderStatusChangeListener(this)
                 .prepare(this);
 
-        //--初始化录音
+        //-- 初始化录
+//        mAudioRecorder = AudioRecorderIml.getInstance();
+        mAudioRecorder = AudioRecorder2Iml.getInstance();
+
         mAudioRecorder
                 .statusChangeListener(status -> {
                     Log.d(TAG, "onCreate: AudioRecorder status : " + status);
@@ -108,7 +116,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
                 .directory(RecorderContants.DIRECTORY_AUDIO)
                 .prepare(this);
 
-
+        //取消
         btnCancel.setOnClickListener(v -> {
             ImageRecorderIml.getInstance().cancel();
             mAudioRecorder.cancel();
@@ -116,12 +124,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
 
         });
 
-        btnStart.setOnClickListener(v -> {
-
-            ImageRecorderIml.getInstance().takePhoto();
-
-        });
-
+        //开始
         btnLock.setOnClickListener(v -> {
             Log.d(TAG, "onCreate: RecorderStatus = " + status);
             //--3.开始拍照，可以放在点击事件中，也可以在相机初始化完成后触发

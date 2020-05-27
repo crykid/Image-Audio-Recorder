@@ -57,21 +57,7 @@
             android:background="@drawable/bg_btn_left"
             android:text="@android:string/cancel"
             android:textColor="#ffffff"
-            app:layout_constraintBottom_toBottomOf="@+id/btn_record_start"
             app:layout_constraintStart_toStartOf="parent" />
-
-
-        <Button
-            android:id="@+id/btn_record_start"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="1px"
-            android:background="#4CAF50"
-            android:text="start"
-            android:textColor="#2196F3"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/btn_record_cancel" />
 
 
         <Button
@@ -94,10 +80,9 @@
             android:background="@drawable/bg_btn_right"
             android:text="stop"
             android:textColor="#ffffff"
-            app:layout_constraintBottom_toBottomOf="@+id/btn_record_start"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.013"
-            app:layout_constraintStart_toEndOf="@+id/btn_record_start" />
+            />
     </LinearLayout>
 
     <ProgressBar
