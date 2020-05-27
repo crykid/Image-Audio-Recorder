@@ -2,6 +2,7 @@
 //--模块配置1   一定要改这个值！！！！！！！
 //--模块配置1
 //--模块配置1
+
 def asApplication = true
 
 if (asApplication) {
