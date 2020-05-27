@@ -1,2 +1,2 @@
-include ':app'
+include ':image-audio-recorder'
 rootProject.name='Image-Audio-Recorder'

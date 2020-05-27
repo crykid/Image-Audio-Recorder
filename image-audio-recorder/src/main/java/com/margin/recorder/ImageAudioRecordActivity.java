@@ -10,7 +10,6 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.margin.recorder.recorder.RecorderContants;
-import com.margin.recorder.recorder.audio.AudioRecorderIml;
 import com.margin.recorder.recorder.audio.IAudioRecorder;
 import com.margin.recorder.recorder.image.AudioRecorder2Iml;
 import com.margin.recorder.recorder.image.AutoFitTextureView;
@@ -24,7 +23,7 @@ import java.util.List;
 /**
  * Created by : mr.lu
  * Created at : 2020-04-22 at 14:09
- * Description:
+ * Description:  使用 start 方法
  * * --------------------- *
  * | 注：该模块不负责权限的检查！|
  * | 注：该模块不负责权限的检查！|
@@ -35,13 +34,21 @@ import java.util.List;
  */
 public class ImageAudioRecordActivity extends AppCompatActivity implements IOnImageRecorderStatusChangeListener {
     private static final String TAG = "RecordActivity";
+    public final static String INTENT_IMAGE_PATH = "intent_image_path";
+    public final static String INTENT_AUDIO_PATH = "intent_audio_path";
+
+
     private Button btnStart, btnStop, btnCancel, btnLock;
     private IAudioRecorder mAudioRecorder;
     private AutoFitTextureView previewView;
 
 
     /**
+     * -----------------------------
+     * <p>
      * 启动该Activity的方法
+     * <p>
+     * -----------------------------
      *
      * @param context
      * @param recordTime  记录的时长
@@ -162,8 +169,10 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         }
     }
 
+    /**
+     * 结束当前页面，并返回数据
+     */
     private void finishAndReturnData() {
-
 
         //返回结果！！
         //录音文件
@@ -176,8 +185,9 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         Intent data = new Intent();
 
         //记得拿到文件路径首先判断文件是否存在
-        data.putExtra("intent_image_path", realPahts);
-        data.putExtra("intent_audio_path", audioFilePath);
+        data.putExtra(INTENT_IMAGE_PATH, realPahts);
+        data.putExtra(INTENT_AUDIO_PATH, audioFilePath);
+
         setResult(RESULT_OK, data);
         if (BuildConfig.DEBUG) {
             Toast.makeText(this, "完成自动返回客户app", Toast.LENGTH_SHORT).show();
