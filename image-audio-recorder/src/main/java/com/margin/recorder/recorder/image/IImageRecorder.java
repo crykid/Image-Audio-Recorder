@@ -13,7 +13,7 @@ import java.util.List;
  */
 public interface IImageRecorder {
 
-    IImageRecorder target( @NonNull TextureView previewView);
+    IImageRecorder target(@NonNull TextureView previewView);
 
     @Deprecated
     IImageRecorder hand();
@@ -32,6 +32,8 @@ public interface IImageRecorder {
 
 
     void takePhoto();
+
+    void restartRecord();
 
     void cancel();
 

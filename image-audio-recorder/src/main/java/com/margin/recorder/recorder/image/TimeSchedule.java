@@ -32,10 +32,11 @@ public class TimeSchedule {
     private ScheduleStrategy scheduleStrategy;
 
     private final int EXECUTE_MSG = 1;
+    private final int STOP_EXECUTE = 2;
 
     private int executedTime = 0;
     ThreadLocal<Integer> local = new ThreadLocal<>();
-
+    private Timer timer;
 
     private static TimeSchedule schedule;
 
@@ -52,19 +53,25 @@ public class TimeSchedule {
                 executedTime = local.get();
                 if (executedTime > CAPTURE_TIME) return;
                 randomSchedule();
+            } else if (msg.what == STOP_EXECUTE) {
+                local.set(0);
             }
         }
     };
 
-    public static TimeSchedule create() {
-        if (schedule == null) {
-            return new TimeSchedule();
-        }
-        return schedule;
-    }
 
-    private TimeSchedule() {
+
+    //----------------------Singleton Holder----------------------------------
+    private TimeSchedule(){}
+
+    private final static class Holder{
+        private final static TimeSchedule INSTANCE = new TimeSchedule();
     }
+    public static TimeSchedule getInstance(){
+        return Holder.INSTANCE;
+    }
+    //----------------------Singleton Holder----------------------------------
+
 
     /**
      * @param scheduleStrategy
@@ -104,8 +111,8 @@ public class TimeSchedule {
         if (scheduleStrategy == ScheduleStrategy.AUTO_AVERAGE) {
             average();
         } else {
-            mHandler.sendEmptyMessage(1);
-            randomSchedule();
+            mHandler.sendEmptyMessage(EXECUTE_MSG);
+//            randomSchedule();
         }
 
     }
@@ -127,34 +134,60 @@ public class TimeSchedule {
 
     }
 
+    TimerTask takePhotoTask = null;
 
     private void average() {
 
 
-        long period = RECORD_PERIOD * 1000 / (CAPTURE_TIME - 1);
-        Timer timer = new Timer(true);
-        TimerTask timerTask = new TimerTask() {
+        long period = RECORD_PERIOD * 1000 / CAPTURE_TIME;
+        if (timer == null) {
+            timer = new Timer();
+        }
+        takePhotoTask = new TimerTask() {
+
+            ThreadLocal<Integer> local = new ThreadLocal();
+
             @Override
             public void run() {
                 if (local.get() == null) {
-                    local.set(0);
+                    local.set(1);
                 }
-                executedTime = local.get();
-                executedTime++;
-                Log.d(TAG, "run: executedTime = " + executedTime);
-                mHandler.post(() -> {
-                    mExecutor.execute(executedTime);
-                });
-                ;
-                if (executedTime >= CAPTURE_TIME) {
+              int  executedTime = local.get();
+
+                if (executedTime > CAPTURE_TIME) {
                     timer.cancel();
+                    local.remove();
                     Log.d(TAG, "run: cancel");
                 }
+                Log.d(TAG, "run: executedTime = " + executedTime);
+                mExecutor.execute(executedTime);
+                executedTime++;
                 local.set(executedTime);
+
 
             }
         };
-        timer.schedule(timerTask, 0, period);
+
+        //每隔period时间执行一次
+        timer.schedule(takePhotoTask, 0, period);
+    }
+
+    public void stop() {
+        if (scheduleStrategy == ScheduleStrategy.AUTO_AVERAGE) {
+
+            if (timer != null) {
+                timer.cancel();
+                timer.purge();
+                timer =null;
+            }
+            if (takePhotoTask != null) {
+                takePhotoTask.cancel();
+                takePhotoTask = null;
+            }
+
+        } else {
+            mHandler.sendEmptyMessage(STOP_EXECUTE);
+        }
     }
 
     interface IScheduleExecutor {

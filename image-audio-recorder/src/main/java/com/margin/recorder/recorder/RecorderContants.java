@@ -32,4 +32,10 @@ public class RecorderContants {
      * com.xxx.xxx/Environment.DIRECTORY_MUSIC/capture/name
      */
     public static final String DIRECTORY_CAPTURE = "capture";
+
+    /**
+     * 将pcm录音转换为wav后是否删除原来的pcm file。
+     * pcm wav 反复无常，留着备用
+     */
+    public final static boolean DEL_PCM_FILE = true;
 }

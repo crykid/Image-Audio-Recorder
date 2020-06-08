@@ -117,6 +117,7 @@ public class ImageRecorderIml implements IImageRecorder {
     private int displayRotation;
     //摄像头旋转方向，保存照片的时候根据摄像头旋转方向对照片进行旋转
     private int cameraOritation;
+    private Handler mHanlder;
 
 
     //------------ -------------- --------------- ---------------
@@ -236,10 +237,11 @@ public class ImageRecorderIml implements IImageRecorder {
         mFilePaths.clear();
         this.mContext = context;
         Log.d(TAG, "=== startPreview === ");
+        mHanlder = new Handler(context.getMainLooper());
         initCamera();
         mStatus = ImageRecorderStatus.READY;
         if (mRecorderStatusChangeListener != null) {
-            mRecorderStatusChangeListener.onChange(mStatus);
+            mRecorderStatusChangeListener.onStatusChange(mStatus);
         }
 
     }
@@ -302,13 +304,44 @@ public class ImageRecorderIml implements IImageRecorder {
         }
     }
 
+    /**
+     * 保持预览，只是停止拍照，然后重新开始拍照。
+     * 需要删除旧的照片
+     */
     @Override
-    public void cancel() {
+    public void restartRecord() {
+
+        if (mScheduleStrategy == ScheduleStrategy.HAND) {
+            Log.d(TAG, "restartRecord: 手动模式下此功能无效");
+        } else {
+            mStatus = ImageRecorderStatus.PREVIEW;
+            if (mRecorderStatusChangeListener != null) {
+                mRecorderStatusChangeListener.onStatusChange(mStatus);
+            }
+            //停止schedule
+            TimeSchedule.getInstance().stop();
+
+            // FIXME: 2020/5/29
+            //删除已经拍的照片
+            clearFragments();
+            mFilePaths.clear();
+//            //重新开始拍照
+            takePhoto();
+        }
+    }
+
+    private void clearFragments() {
         if (mFilePaths.size() > 0) {
             for (String path : mFilePaths) {
                 FileUtil.clearFragments(path);
             }
         }
+    }
+
+    @Override
+    public void cancel() {
+        TimeSchedule.getInstance().stop();
+        clearFragments();
         release();
     }
 
@@ -316,7 +349,7 @@ public class ImageRecorderIml implements IImageRecorder {
     public void release() {
         mStatus = ImageRecorderStatus.STOP;
         if (mRecorderStatusChangeListener != null) {
-            mRecorderStatusChangeListener.onChange(mStatus);
+            mRecorderStatusChangeListener.onStatusChange(mStatus);
         }
         closeCamera();
 
@@ -340,18 +373,25 @@ public class ImageRecorderIml implements IImageRecorder {
         //由预览状态进入拍照状态时，通知记录器的状态
         this.mStatus = ImageRecorderStatus.CAPTURE;
         if (mRecorderStatusChangeListener != null) {
-            mRecorderStatusChangeListener.onChange(mStatus);
+            mRecorderStatusChangeListener.onStatusChange(mStatus);
         }
 
-        TimeSchedule
-                .create()
+        TimeSchedule.getInstance()
                 .prepare(scheduleStrategy, mPeriod, mCaptureTime)
                 .execute(time -> {
-                    if (time >= mCaptureTime) {
-                        mRecorderStatusChangeListener.onChange(ImageRecorderStatus.STOP);
-                    } else {
-                        lockFocus();
-                    }
+                    //切换线程
+                    mHanlder.post(() -> {
+
+                        Log.d(TAG, "multiCapture: == time = " + time);
+                        if (time > mCaptureTime) {
+                            if (mRecorderStatusChangeListener != null) {
+//                            this.mStatus = ImageRecorderStatus.STOP;
+                                mRecorderStatusChangeListener.onStatusChange(ImageRecorderStatus.STOP);
+                            }
+                        } else {
+                            lockFocus();
+                        }
+                    });
                 });
     }
 
@@ -366,7 +406,7 @@ public class ImageRecorderIml implements IImageRecorder {
         if (mStatus != ImageRecorderStatus.CAPTURE) {
             this.mStatus = ImageRecorderStatus.CAPTURE;
             if (mRecorderStatusChangeListener != null) {
-                mRecorderStatusChangeListener.onChange(mStatus);
+                mRecorderStatusChangeListener.onStatusChange(mStatus);
             }
         }
 
@@ -509,6 +549,7 @@ public class ImageRecorderIml implements IImageRecorder {
 
     private void lockFocus() {
         try {
+            if (mCameraDevice == null) return;
             final CaptureRequest.Builder captureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
 
             /*
@@ -533,7 +574,7 @@ public class ImageRecorderIml implements IImageRecorder {
             mCameraCaptureSession.stopRepeating();
             //拍照
             mCameraCaptureSession.capture(captureRequest, captureSessionCaptureCallback, mCameraHandler);
-        } catch (CameraAccessException e) {
+        } catch (Exception e) {
             Log.e(TAG, "lockFocus: ", e);
         }
     }
@@ -596,7 +637,7 @@ public class ImageRecorderIml implements IImageRecorder {
                 //更新预览状态
                 mStatus = ImageRecorderStatus.PREVIEW;
                 if (mRecorderStatusChangeListener != null) {
-                    mRecorderStatusChangeListener.onChange(mStatus);
+                    mRecorderStatusChangeListener.onStatusChange(mStatus);
                 }
 
             } catch (CameraAccessException e) {

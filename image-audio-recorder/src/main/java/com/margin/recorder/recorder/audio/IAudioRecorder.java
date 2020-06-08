@@ -22,14 +22,23 @@ public interface IAudioRecorder {
 
     void start();
 
+    void restartRecord();
+
     @Deprecated
     void pause();
 
     @Deprecated
     void resume();
 
+    /**
+     * 停止录音
+     * stop相对于cancel，使用时应挑选更合适的时机
+     */
     void stop();
 
+    /**
+     * 停止录音并删除已录制部分，释放资源 然后退出录音
+     */
     void cancel();
 
 

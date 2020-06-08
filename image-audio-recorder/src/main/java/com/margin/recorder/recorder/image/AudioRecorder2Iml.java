@@ -42,10 +42,13 @@ public class AudioRecorder2Iml implements IAudioRecorder {
 
     private int bufferSize = 0;
     private AudioRecord mAudioRecord;
-    private String fileName;
+
+    // 返回的文件名
+    private String fileName, wavFileName;
 
     private AudioRecorderStatus status = AudioRecorderStatus.STATUS_NO_READY;
 
+    private Thread writeDateThread = null;
 
     //----------------------Singleton Holder----------------------------------
     private AudioRecorder2Iml() {
@@ -92,11 +95,14 @@ public class AudioRecorder2Iml implements IAudioRecorder {
     @Override
     public void start() {
         if (status == AudioRecorderStatus.STATUS_NO_READY) {
-            throw new IllegalStateException("录音尚未初始化");
+            Log.e(TAG, "start: 录音尚未初始化");
+//            throw new IllegalStateException("录音尚未初始化");
+            return;
         }
         if (status == AudioRecorderStatus.STATUS_START) {
             Log.e(TAG, "start: 正在录音");
-            throw new IllegalStateException("正在录音");
+//            throw new IllegalStateException("正在录音");
+            return;
         }
         Log.d(TAG, "=== startRecord === " + mAudioRecord.getState());
         mAudioRecord.startRecording();
@@ -105,7 +111,25 @@ public class AudioRecorder2Iml implements IAudioRecorder {
             mListener.onChange(status);
         }
         //把录音保存到本地
-        new Thread(this::writeData2File).start();
+        if (writeDateThread == null) {
+            writeDateThread = new Thread(() -> {
+                if (!Thread.interrupted()) {
+                    writeData2File();
+                }
+            });
+        }
+        writeDateThread.start();
+    }
+
+    @Override
+    public void restartRecord() {
+        //停止线程
+//        writeDateThread.interrupt();
+        stop();
+
+        FileUtil.clearFragments(fileName);
+        FileUtil.clearFragments(wavFileName);
+        start();
     }
 
     @Override
@@ -130,7 +154,6 @@ public class AudioRecorder2Iml implements IAudioRecorder {
             if (mListener != null) {
                 mListener.onChange(status);
             }
-            release();
         }
     }
 
@@ -145,15 +168,16 @@ public class AudioRecorder2Iml implements IAudioRecorder {
         if (mListener != null) {
             mListener.onChange(status);
         }
+        FileUtil.clearFragments(fileName);
     }
 
-    private void release() {
-
-    }
 
     @Override
     public String getAudio() {
-        return fileName;
+        //pcm
+//        return fileName;
+        //wav
+        return wavFileName;
     }
 
     @Override
@@ -177,7 +201,9 @@ public class AudioRecorder2Iml implements IAudioRecorder {
         return status.name();
     }
 
-
+    /**
+     * 把录音写入文件
+     */
     private void writeData2File() {
         try {
             byte[] audioDate = new byte[bufferSize];
@@ -197,8 +223,9 @@ public class AudioRecorder2Iml implements IAudioRecorder {
 
             fos.close();
             if (BuildConfig.DEBUG) {
-                String wavFileName = fileName.replace("pcm", "wav");
-                FileUtil.makePCMFileToWAVFile(fileName, wavFileName, false);
+                wavFileName = fileName.replace("pcm", "wav");
+                //pcm ==>> 转换为wav
+                FileUtil.makePCMFileToWAVFile(fileName, wavFileName, RecorderContants.DEL_PCM_FILE);
             }
 
         } catch (FileNotFoundException e) {

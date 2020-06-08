@@ -10,6 +10,7 @@ public enum ScheduleStrategy {
     /**
      * 随机
      */
+    @Deprecated
     AUTO_RANDOM,
     /**
      * 间隔相同时间

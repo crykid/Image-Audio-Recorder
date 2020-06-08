@@ -126,6 +126,11 @@ public class AudioRecorderIml implements IAudioRecorder {
         startRecord();
     }
 
+    @Override
+    public void restartRecord() {
+        // TODO: 2020/5/29
+    }
+
     private void startRecord() {
 
         // 开始录音
@@ -228,7 +233,7 @@ public class AudioRecorderIml implements IAudioRecorder {
         //此时不需要回调，因为取消是用户主动行为
 
         final String p = fileName;
-        //1.退出录音
+        //1.停止录音
         stop();
         //2.清除录音文件
         FileUtil.clearFragments(p);

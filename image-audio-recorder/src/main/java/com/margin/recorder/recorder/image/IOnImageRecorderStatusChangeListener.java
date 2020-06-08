@@ -6,5 +6,5 @@ package com.margin.recorder.recorder.image;
  * Description: 摄像头-预览工作状态监听
  */
 public interface IOnImageRecorderStatusChangeListener {
-    void onChange(ImageRecorderStatus status);
+    void onStatusChange(ImageRecorderStatus status);
 }
