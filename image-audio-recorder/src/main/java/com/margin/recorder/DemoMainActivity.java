@@ -35,7 +35,7 @@ public class DemoMainActivity extends AppCompatActivity {
                 "一觞一咏，亦足以畅叙幽情。";
 
         findViewById(R.id.btn_main_start).setOnClickListener(v ->
-                ImageAudioRecordActivity.start(this, 30, 5, lantingjixu)
+                ImageAudioRecordActivity.start(this, 45, 5, lantingjixu)
         );
     }
 
