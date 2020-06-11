@@ -20,7 +20,9 @@
 
 
 <!--        <provider-->
+<!--            android:grantUriPermissions="true"-->
 <!--            android:name=".RecorderFileProvider"-->
+<!--            android:exported="false"-->
 <!--            android:authorities="com.margin.recorder.provider">-->
 <!--            <meta-data-->
 <!--                android:name="android.support.FILE_PROVIDER_PATHS"-->
