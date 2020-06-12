@@ -90,6 +90,7 @@ public class AudioRecorder2Iml implements IAudioRecorder {
             mListener.onChange(status);
         }
         fileName = generateFileName(context);
+        wavFileName = fileName.replace("pcm", "wav");
     }
 
     @Override
@@ -154,7 +155,12 @@ public class AudioRecorder2Iml implements IAudioRecorder {
             if (mListener != null) {
                 mListener.onChange(status);
             }
+            if (writeDateThread != null) {
+                writeDateThread.interrupt();
+                writeDateThread = null;
+            }
         }
+
     }
 
 
@@ -222,11 +228,8 @@ public class AudioRecorder2Iml implements IAudioRecorder {
             }
 
             fos.close();
-            if (BuildConfig.DEBUG) {
-                wavFileName = fileName.replace("pcm", "wav");
-                //pcm ==>> 转换为wav
-                FileUtil.makePCMFileToWAVFile(fileName, wavFileName, RecorderContants.DEL_PCM_FILE);
-            }
+            //pcm ==>> 转换为wav
+            FileUtil.makePCMFileToWAVFile(fileName, wavFileName, RecorderContants.DEL_PCM_FILE);
 
         } catch (FileNotFoundException e) {
             e.printStackTrace();

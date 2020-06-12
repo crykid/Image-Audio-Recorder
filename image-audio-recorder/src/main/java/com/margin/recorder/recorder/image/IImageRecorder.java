@@ -35,6 +35,8 @@ public interface IImageRecorder {
 
     void restartRecord();
 
+    void stop();
+
     void cancel();
 
     void release();

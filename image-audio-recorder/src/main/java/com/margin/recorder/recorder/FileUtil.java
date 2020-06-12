@@ -36,7 +36,7 @@ import java.util.Date;
 public class FileUtil {
 
     //这个路径和fileProvider中保持一致；
-    private static final String PROVIDER_NAME_BEFORE_Q = "margin_files";
+    private static final String PROVIDER_NAME_BEFORE_Q = "ccic_files";
     private static final String TAG = "FileUtil";
 
     /**

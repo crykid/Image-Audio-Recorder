@@ -179,9 +179,7 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
         }
 
         if (status == ImageRecorderStatus.STOP) {
-
             //-- 结束录制，并返回数据
-            mAudioRecorder.stop();
             finishAndReturnData();
         }
     }
@@ -234,14 +232,15 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
             //重新开始
             restartRecord();
         } else if (id == R.id.btn_record_lock) {
+            btnStop.setVisibility(View.VISIBLE);
+            btnLock.setVisibility(View.GONE);
             startRecording();
         } else if (id == R.id.btn_record_cancel) {
 
             cancelRecording();
 
         } else if (id == R.id.btn_record_stop) {
-
-            Toast.makeText(this, "功能暂时未实现", Toast.LENGTH_SHORT).show();
+            stopRecording();
         }
     }
 
@@ -274,6 +273,14 @@ public class ImageAudioRecordActivity extends AppCompatActivity implements IOnIm
     private void cancelRecording() {
         ImageRecorderIml.getInstance().cancel();
         mAudioRecorder.cancel();
+    }
+
+    /**
+     * 提前结束录音
+     */
+    private void stopRecording() {
+        ImageRecorderIml.getInstance().stop();
+        mAudioRecorder.stop();
     }
 
 

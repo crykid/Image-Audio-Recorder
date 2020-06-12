@@ -320,14 +320,18 @@ public class ImageRecorderIml implements IImageRecorder {
             }
             //停止schedule
             TimeSchedule.getInstance().stop();
-
-            // FIXME: 2020/5/29
             //删除已经拍的照片
             clearFragments();
-            mFilePaths.clear();
 //            //重新开始拍照
             takePhoto();
         }
+    }
+
+    @Override
+    public void stop() {
+
+        TimeSchedule.getInstance().stop();
+        release();
     }
 
     private void clearFragments() {
@@ -335,7 +339,10 @@ public class ImageRecorderIml implements IImageRecorder {
             for (String path : mFilePaths) {
                 FileUtil.clearFragments(path);
             }
+
+            mFilePaths.clear();
         }
+
     }
 
     @Override
@@ -355,7 +362,6 @@ public class ImageRecorderIml implements IImageRecorder {
 
         RecorderCameraUtil.getInstance().release();
         mContext = null;
-        mFilePaths.clear();
     }
 
 
